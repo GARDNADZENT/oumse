@@ -11,22 +11,22 @@ straight to the main window — no account, no server, no heartbeat.
 
 **Direct link:**
 
-<https://github.com/GARDNADZENT/oumse/releases/download/v0.2.0/BestMDMToolSetup-0.2.0.exe>
+<https://github.com/GARDNADZENT/oumse/releases/download/v0.3.0/BestMDMToolSetup-0.3.0.exe>
 
 **Release page** (also has `SHA256SUMS.txt`):
 
-<https://github.com/GARDNADZENT/oumse/releases/tag/v0.2.0>
+<https://github.com/GARDNADZENT/oumse/releases/tag/v0.3.0>
 
 | Item | Value |
 | --- | --- |
-| File | `BestMDMToolSetup-0.2.0.exe` |
+| File | `BestMDMToolSetup-0.3.0.exe` |
 | Size | ~48.6 MiB |
 | Built by | GitHub Actions, Windows `windows-latest` |
 | Signing | **Not signed** — SmartScreen will warn (see below) |
 
 Install steps:
 
-1. Run `BestMDMToolSetup-0.2.0.exe`.
+1. Run `BestMDMToolSetup-0.3.0.exe`.
 2. Because the file is not code-signed, Windows shows
    *"Windows protected your PC"*. Click **More info → Run anyway**.
 3. Finish setup, then launch **BestMDMTool** from the Start Menu.
@@ -38,7 +38,7 @@ Python is **not required** on the target PC: the installer ships a standalone
 ### Verify the download (optional but recommended)
 
 ```powershell
-Get-FileHash .\BestMDMToolSetup-0.2.0.exe -Algorithm SHA256
+Get-FileHash .\BestMDMToolSetup-0.3.0.exe -Algorithm SHA256
 ```
 
 Compare the output with the contents of `SHA256SUMS.txt` on the release page.
@@ -87,7 +87,7 @@ The script:
 2. installs Inno Setup 6 automatically if `ISCC.exe` is missing (winget, then a
    direct download);
 3. compiles the installer to
-   `installer-bestmdmtool\artifacts\BestMDMToolSetup-0.2.0.exe`;
+   `installer-bestmdmtool\artifacts\BestMDMToolSetup-0.3.0.exe`;
 4. writes `installer-bestmdmtool\artifacts\SHA256SUMS.txt`.
 
 Alternative entry points:

@@ -1,7 +1,7 @@
 # Oumse GSM Tool Pro / BestMDMTool — No-Login Community Front-Ends
 
 > **Just want the installer?** Download
-> [`BestMDMToolSetup-0.2.0.exe`](https://github.com/GARDNADZENT/oumse/releases/download/v0.2.0/BestMDMToolSetup-0.2.0.exe)
+> [`BestMDMToolSetup-0.3.0.exe`](https://github.com/GARDNADZENT/oumse/releases/download/v0.3.0/BestMDMToolSetup-0.3.0.exe)
 > (self-contained, no login, no Python needed). Step-by-step instructions: [GET_BESTMDMTOOL.md](GET_BESTMDMTOOL.md).
 
 This repository now contains **two directly opening, no-login front-ends** for the existing
@@ -184,7 +184,7 @@ On Windows, run:
 installer-bestmdmtool\build_installer.bat
 ```
 
-It produces `installer-bestmdmtool\artifacts\BestMDMToolSetup-0.2.0.exe`. See
+It produces `installer-bestmdmtool\artifacts\BestMDMToolSetup-0.3.0.exe`. See
 `installer-bestmdmtool/README.md` and `bestmdmtool/README.md`.
 
 Both installers create Start Menu and optional Desktop shortcuts that launch their respective

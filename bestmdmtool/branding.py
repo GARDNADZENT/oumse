@@ -2,6 +2,6 @@
 
 PRODUCT_NAME = "BestMDMTool"
 PRODUCT_TITLE = "BestMDMTool — Authorized Device Service (No Login)"
-PRODUCT_VERSION = "0.2.0"
+PRODUCT_VERSION = "0.3.0"
 PRODUCT_SUBTITLE = "Opens directly · no login · authorized service only · offline by default"
 AUTHORIZED_USE = "Use only on devices you own or are explicitly authorized to service."

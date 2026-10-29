@@ -1,113 +1,94 @@
 # BestMDMTool
 
-**BestMDMTool** is a separate, no-login desktop application for authorized
-device servicing. It is inspired by the layout and workflow of the open-source
-no-login community front-end, but it is its own product with its own branding,
-installer, and documentation.
+A no-login MediaTek service workspace. It opens straight into the device
+screen — no account, no server, no heartbeat — and drives the bundled
+mtkclient BROM/DA layer over a persistent session.
 
 > Use only on devices you own or are explicitly authorized to service.
 
-## What it is
+## Interface
 
-- A directly opening Tkinter GUI with **no login screen**.
-- Offline by default: no licensing server, heartbeat, telemetry, or account
-  system.
-- Built on the shared `servicecore/` package for session management, safe local
-  patching, and partition safety checks.
-- Uses the existing local BROM runner in `runtime/lib/` for device operations.
-- Ships with its own Windows installer in `installer-bestmdmtool/`.
+Sidebar navigation with a shared activity log dock and a live status bar.
 
-## What it is not
+| Page | What it does |
+| --- | --- |
+| **Dashboard** | Chipset, hardware code, storage type, partition count, ADB state, quick actions |
+| **Partition Manager** | Filterable GPT table: read, write, erase, back up all, export GPT |
+| **Firmware Flasher** | Flash an image to a partition, batch queue with auto-matching, raw offset write |
+| **Advanced Tools** | Raw flash read/erase at a byte offset, live memory peek/poke with hex viewer |
+| **Bootloader** | Lock-state probe via ADB, seccfg unlock/lock over DA, fastboot helpers |
+| **ADB & Fastboot** | Device list, reboot targets, shell, APK install, push/pull |
+| **Settings** | Session mode (BROM/preloader), transport, custom DA loader, auth file, verbose logging |
+| **About** | Product identity and safety boundaries |
 
-- It is **not** a copy of the legacy compiled OumseGSM executable.
-- It does **not** include the legacy login/anti-analysis/licensing code.
-- It does **not** include MDM/FRP bypass algorithms, server-side patch
-  algorithms, or credential/licensing bypass logic.
-- It is not affiliated with or endorsed by OumseGSM.
+Keyboard: `F5` refreshes the partition table.
 
-## Quick start
+## Operations
 
-Requirements:
+Everything runs locally through `servicecore/runner/service_runner.py`, which
+keeps one BROM/DA connection open and accepts JSON commands on stdin:
 
-- Windows with Python 3.10+ and Tkinter.
-- MediaTek USB / preloader VCOM / UsbDk drivers for device work.
-- A powered-off device connected in BROM/preloader mode.
+```
+info, gpt, gpt_export, read, write, erase, dump,
+readflash, writeflash, eraseflash, peek, poke,
+seccfg, reboot, quit
+```
 
-From the repository root:
+Progress, per-step events, and failures stream back as `SVC_*` lines
+(`SVC_STEP`, `SVC_PROGRESS`, `SVC_LOG`, `SVC_INFO`, `SVC_READY`, `SVC_OK`,
+`SVC_FAIL`, `SVC_DATA`, `SVC_BYE`).
+
+Destructive actions (write, erase, poke, seccfg, raw flash) always require
+confirmation, and protected partitions are flagged in the table.
+
+## Run from source
 
 ```bat
 START_BEST_MDM_TOOL.bat
 ```
 
-Or:
-
-```bat
-py -3 -m bestmdmtool
-```
-
-For development on Linux/macOS (GUI only; hardware operations are Windows-only):
+Requires Python 3.10+ with Tkinter on that machine.
 
 ```bash
-./run_bestmdmtool.sh
-# or
-BEST_MDM_TOOL_PYTHON=python3 python3 -m bestmdmtool
+python -m bestmdmtool      # from the repository root
 ```
-
-## Features
-
-- Start/stop a persistent BROM runner session.
-- Choose `brom` or `preloader` mode.
-- Optional custom DA loader and auth file.
-- Partition inventory from `OUMSE_READY`.
-- Read, write, and erase partitions with explicit confirmation.
-- Reboot the device.
-- Safe local patching with validation, checksums, backups, and atomic writes.
-- Partition-name validation and critical-partition guards.
-- Live color-coded logs.
 
 ## Installer
 
-A reproducible Inno Setup installer is in `installer-bestmdmtool/`.
+`installer-bestmdmtool/` builds `BestMDMToolSetup-<version>.exe` with Inno
+Setup. The installer ships a standalone `BestMDMTool.exe` (PyInstaller with its
+own Python + Tkinter), so end users do not need Python at all. The bundled
+x86 `runtime/bin` Python is only used headlessly by the BROM runner.
 
-On Windows:
-
-```bat
-installer-bestmdmtool\build_installer.bat
+```powershell
+.\BUILD_BESTMDMTOOL_INSTALLER.bat
 ```
 
-This produces:
+See [../GET_BESTMDMTOOL.md](../GET_BESTMDMTOOL.md) for download and build steps.
 
-```text
-installer-bestmdmtool\artifacts\BestMDMToolSetup-0.2.0.exe
+## What it is not
+
+- No MDM/FRP bypass, credential extraction, or licensing circumvention.
+- No login, no account, no remote service, no telemetry.
+- Not a rebrand of the legacy compiled executable: the UI is first-party
+  Tkinter code in `bestmdmtool/ui/`.
+
+## Layout
+
 ```
-
-The `.exe` can also be built by
-`.github/workflows/build-bestmdmtool-installer.yml` on a Windows runner.
-
-A portable ZIP can be generated on any OS:
-
-```bash
-python installer-bestmdmtool/build_portable.py
+bestmdmtool/
+  gui.py            # BestMDMToolApp (MainWindow subclass) + main()
+  branding.py       # product name, version, safety strings
+  settings.py       # per-user settings (LOCALAPPDATA/BestMDMTool)
+  ui/
+    theme.py        # dark palette + ttk styles
+    widgets.py      # Card, ActionButton, Pill, StatTile, LogConsole, PathRow
+    controller.py   # session lifecycle, worker threads, event pump
+    main_window.py  # header, sidebar, pages, log dock, status bar
+    pages/          # dashboard, partitions, flasher, advanced,
+                    # bootloader, adb_tools, settings, about
+servicecore/
+  service_session.py  # client for the runner protocol
+  runner/service_runner.py  # persistent BROM/DA backend
+  adb.py              # ADB / Fastboot wrappers
 ```
-
-See `installer-bestmdmtool/README.md` for details.
-
-## Architecture
-
-```text
-bestmdmtool/       # BestMDMTool GUI and branding
-servicecore/       # Shared session, patching, safety, and config code
-runtime/lib/       # Vendored mtkclient and BROM runners
-runtime/bin/       # Bundled headless Python runtime for the runner
-Bin/, adb_assets/  # Third-party Windows flashing/ADB utilities
-```
-
-The original no-login app in `app/` also uses `servicecore/`, so fixes to the
-core benefit both products.
-
-## Legal and compliance
-
-This tool can read, write, and erase device partitions. Use it only with proper
-authorization. The vendored `mtkclient` is GPLv3; review
-`runtime/lib/LICENSE` and all bundled third-party licenses before distributing
-an installer. See the repository root `SECURITY.md` and `PROJECT_ANALYSIS.md`.

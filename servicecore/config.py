@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import sys
 from pathlib import Path
 
@@ -30,6 +31,7 @@ BIN_DIR = RUNTIME_DIR / "bin"
 DEFAULT_PYTHON = BIN_DIR / "python.exe"
 SESSION_RUNNER = LIB_DIR / "oumse_brom_session_runner.py"
 ONE_SHOT_RUNNER = LIB_DIR / "oumse_brom_runner.py"
+SERVICE_RUNNER = ROOT / "servicecore" / "runner" / "service_runner.py"
 
 
 def _override(name: str, default: Path) -> Path:
@@ -42,6 +44,14 @@ def python_executable() -> Path:
     candidate = _override("OUMSE_PYTHON", DEFAULT_PYTHON)
     if candidate.exists():
         return candidate
+    if getattr(sys, "frozen", False):
+        # Frozen build without the bundled runtime: fall back to a system Python
+        # rather than pointing at BestMDMTool.exe.
+        for name in ("python.exe", "python"):
+            found = shutil.which(name)
+            if found:
+                return Path(found)
+        return candidate
     return Path(sys.executable)
 
 
@@ -51,6 +61,17 @@ def session_runner_path() -> Path:
 
 def one_shot_runner_path() -> Path:
     return _override("OUMSE_ONE_SHOT_RUNNER", ONE_SHOT_RUNNER)
+
+
+def service_runner_path() -> Path:
+    """Path to the superset runner used by the BestMDMTool interface."""
+    return _override("BESTMDMTOOL_RUNNER", SERVICE_RUNNER)
+
+
+def bundled_python() -> Path | None:
+    """Return the bundled runtime interpreter when it exists."""
+    candidate = DEFAULT_PYTHON
+    return candidate if candidate.exists() else None
 
 
 def runtime_lib() -> Path:
