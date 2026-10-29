@@ -88,7 +88,12 @@ except Exception:  # pragma: no cover
 
 try:
     from mtkclient.config.mtk_config import MtkConfig
-    from mtkclient.Library.argument_parser import ArgHandler
+
+    try:  # newer mtkclient layout
+        from mtkclient.Library.argument_parser import ArgHandler
+    except ImportError:  # vendored 2.1.4 keeps it in mtk_main
+        from mtkclient.Library.mtk_main import ArgHandler
+
     from mtkclient.Library.DA.mtk_da_handler import DaHandler
     from mtkclient.Library.mtk_class import Mtk
 except Exception as exc:  # pragma: no cover

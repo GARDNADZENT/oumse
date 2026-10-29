@@ -73,12 +73,23 @@ jobs:
           if (-not (Test-Path $report)) { throw "Runner self-test report was not written" }
           $json = Get-Content $report -Raw | ConvertFrom-Json
           Write-Host ($json | ConvertTo-Json -Depth 4)
-          if ($proc.ExitCode -ne 0) { throw "Runner self-test failed (exit $($proc.ExitCode))" }
-          if (-not $json.ok) { throw "Runner backend self-test reported failure" }
-          if (-not $json.mtkclient) { throw "mtkclient missing from the runner bundle" }
-          if (-not $json.libusb_backend) { throw "libusb backend could not be loaded (missing DLL)" }
-          if (-not $json.da_v5) { throw "MTK_DA_V5.bin not reachable from the runner" }
           $json | ConvertTo-Json -Depth 4 | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          $detail = (Get-Content $report -Raw) -replace "`r?`n", " "
+          if ($detail.Length -gt 1200) { $detail = $detail.Substring(0, 1200) }
+          if ($proc.ExitCode -ne 0) {
+            Write-Output "::error::Runner self-test exited $($proc.ExitCode): $detail"
+            throw "Runner self-test failed (exit $($proc.ExitCode))"
+          }
+          if (-not $json.ok) {
+            Write-Output "::error::Runner backend self-test reported failure: $detail"
+            throw "Runner backend self-test reported failure"
+          }
+          if (-not $json.mtkclient) { throw "mtkclient missing from the runner bundle" }
+          if (-not $json.libusb_backend) {
+            Write-Output "::error::libusb backend could not be loaded: $detail"
+            throw "libusb backend could not be loaded (missing DLL)"
+          }
+          if (-not $json.da_v5) { throw "MTK_DA_V5.bin not reachable from the runner" }
 
       - name: Verify installer
         shell: pwsh

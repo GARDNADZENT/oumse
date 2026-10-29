@@ -59,9 +59,24 @@ if ($LASTEXITCODE -ne 0) {
     exit 0
 }
 
-Write-Host "Installing PyInstaller..."
-& $python.Exe @($python.Args) @("-m", "pip", "install", "--quiet", "--disable-pip-version-check", "pyinstaller")
-if ($LASTEXITCODE -ne 0) { throw "Could not install PyInstaller." }
+Write-Host "Installing build dependencies..."
+# The vendored runtime\bin site-packages has no C extensions at all, so its
+# Cryptodome cannot even import. Install real wheels into the build interpreter
+# and let PyInstaller collect those instead of the vendored copies.
+$runtimeDeps = @(
+    "pyinstaller",
+    "pyusb",
+    "pyserial",
+    "pycryptodomex",
+    "colorama",
+    "capstone",
+    "keystone-engine"
+)
+& $python.Exe @($python.Args) @("-m", "pip", "install", "--quiet", "--disable-pip-version-check") @runtimeDeps
+if ($LASTEXITCODE -ne 0) { throw "Could not install the build dependencies." }
+
+& $python.Exe @($python.Args) @("-c", "from Cryptodome.Cipher import AES; import usb.core, serial; print('build deps ok')") | Out-Null
+if ($LASTEXITCODE -ne 0) { throw "Build dependencies are incomplete (Cryptodome/pyusb/pyserial)." }
 
 $frozenDir = Join-Path $PSScriptRoot "frozen"
 $workDir = Join-Path $PSScriptRoot "build\pyinstaller"
@@ -70,7 +85,6 @@ New-Item -ItemType Directory -Force -Path $frozenDir | Out-Null
 
 $icon = Join-Path $root "app_icon.ico"
 $libDir = Join-Path $root "runtime\lib"
-$siteDir = Join-Path $root "runtime\bin\Lib\site-packages"
 
 # ---------------------------------------------------------------- GUI bundle
 Write-Host "Building BestMDMTool.exe (GUI)..."
@@ -97,7 +111,6 @@ Write-Host "Building BestMDMToolRunner.exe (device backend)..."
     "--name", "BestMDMToolRunner",
     "--paths", $root,
     "--paths", $libDir,
-    "--paths", $siteDir,
     "--collect-submodules", "mtkclient",
     "--collect-submodules", "servicecore",
     "--collect-all", "usb",

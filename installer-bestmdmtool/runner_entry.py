@@ -24,10 +24,12 @@ def _ensure_import_path() -> None:
         return
     from pathlib import Path
 
+    # Append, never prepend: a real installed pyusb/pyserial/Cryptodome must win
+    # over the vendored copies in runtime/bin (which ship without C extensions).
     root = Path(__file__).resolve().parents[1]
     for extra in (root, root / "runtime" / "lib", root / "runtime" / "bin" / "Lib" / "site-packages"):
         if extra.is_dir() and str(extra) not in sys.path:
-            sys.path.insert(0, str(extra))
+            sys.path.append(str(extra))
 
 
 def _libusb_candidates() -> list[str]:
