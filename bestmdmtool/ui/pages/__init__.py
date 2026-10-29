@@ -7,10 +7,14 @@ from .adb_tools import AdbPage
 from .advanced import AdvancedPage
 from .base import BasePage
 from .bootloader import BootloaderPage
+from .chipsets import ChipsetsPage
 from .dashboard import DashboardPage
+from .diag import DiagPage
 from .flasher import FlasherPage
+from .pac import PacPage
 from .partitions import PartitionsPage
 from .settings_page import SettingsPage
+from .spd import SpdPage
 
 PAGES = {
     "dashboard": DashboardPage,
@@ -21,6 +25,11 @@ PAGES = {
     "adb": AdbPage,
     "settings": SettingsPage,
     "about": AboutPage,
+    # Spreadtrum/Unisoc workspace
+    "spd": SpdPage,
+    "pac": PacPage,
+    "diag": DiagPage,
+    "chipsets": ChipsetsPage,
 }
 
 __all__ = [
@@ -34,4 +43,8 @@ __all__ = [
     "BootloaderPage",
     "AdbPage",
     "SettingsPage",
+    "SpdPage",
+    "PacPage",
+    "DiagPage",
+    "ChipsetsPage",
 ]

@@ -104,6 +104,82 @@ class FakeText(FakeWidget):
         return self._content
 
 
+
+class FakeTreeview(FakeWidget):
+    """Treeview stand-in that keeps real rows, values and selection."""
+
+    def __init__(self, master=None, columns=(), show="", **kwargs):
+        super().__init__(master, **kwargs)
+        self.columns = tuple(columns) if not isinstance(columns, str) else tuple(columns.split())
+        self._children: list[str] = []
+        self._values: dict[str, tuple] = {}
+        self._selection: tuple[str, ...] = ()
+        self._seq = 0
+
+    def insert(self, parent="", index="end", iid=None, values=(), **kwargs):
+        self._seq += 1
+        key = str(iid) if iid is not None else "row%03d" % self._seq
+        if index in ("end", "", None):
+            self._children.append(key)
+        else:
+            self._children.insert(int(index), key)
+        self._values[key] = tuple(values)
+        return key
+
+    def delete(self, *items):
+        if not items:
+            self._children.clear()
+            self._values.clear()
+            return
+        for item in items:
+            if item in self._children:
+                self._children.remove(item)
+            self._values.pop(item, None)
+
+    def get_children(self, item=""):
+        return tuple(self._children)
+
+    def item(self, item, option=None, **kwargs):
+        if "values" in kwargs:
+            self._values[item] = tuple(kwargs["values"])
+            return item
+        if "tags" in kwargs:
+            return item
+        if option == "values":
+            return self._values.get(item, ())
+        if option == "text":
+            return self._values.get(item, ("",))[0]
+        return {"values": self._values.get(item, ())}
+
+    def selection(self):
+        return tuple(self._selection)
+
+    def selection_set(self, items):
+        self._selection = (items,) if isinstance(items, str) else tuple(items)
+
+    def selection_remove(self, items):
+        drop = {items} if isinstance(items, str) else set(items)
+        self._selection = tuple(i for i in self._selection if i not in drop)
+
+    def see(self, _item):
+        return None
+
+    def heading(self, *args, **kwargs):
+        return None
+
+    def column(self, *args, **kwargs):
+        return None
+
+    def yview(self, *args, **kwargs):
+        return None
+
+    def focus(self, _item=None):
+        return self._selection[0] if self._selection else ""
+
+    def exists(self, item):
+        return item in self._children
+
+
 def _module(name, **attrs):
     module = types.ModuleType(name)
     for key, value in attrs.items():
@@ -189,7 +265,7 @@ def install_fake_tkinter(force: bool = True) -> None:
     ttk = _module(
         "tkinter.ttk",
         Style=FakeStyle,
-        Treeview=FakeWidget,
+        Treeview=FakeTreeview,
         Combobox=FakeWidget,
         Progressbar=FakeWidget,
         Scrollbar=FakeWidget,

@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from servicecore.adb import AdbTool, FastbootTool, find_adb, find_fastboot
+from servicecore.chipsets import scan_usb
 from servicecore.config import frozen_runner_path, python_executable, runner_command, service_runner_path
 from servicecore.service_session import CommandResult, ServiceSession
 
@@ -82,21 +83,46 @@ class Controller:
         threading.Thread(target=_target, name="svc-worker", daemon=True).start()
 
     # -- session -----------------------------------------------------------
-    def connect(self, *, mode: str, transport: str, loader: str, auth: str, debug: bool) -> None:
+    def connect(
+        self,
+        *,
+        mode: str,
+        transport: str,
+        loader: str,
+        auth: str,
+        debug: bool,
+        engine: str = "mtk",
+        spd_transport: str = "auto",
+        spd_port: str = "",
+    ) -> None:
+        """Open a session for the chosen engine (``mtk`` BROM or ``spd`` BSL)."""
         if self.connected:
             self.log("A device session is already open.", "WARN")
             return
 
         def _work() -> bool:
-            self.log("Opening %s session (transport: %s)..." % (mode.upper(), transport), "STEP")
-            argv, cwd = runner_command()
+            self.engine = (engine or "mtk").strip().lower()
+            label = "Spreadtrum BSL" if self.engine == "spd" else mode.upper()
+            detail = spd_transport if self.engine == "spd" else transport
+            self.log("Opening %s session (transport: %s)..." % (label, detail), "STEP")
+
+            argv, cwd = runner_command(self.engine)
             frozen = frozen_runner_path()
-            session = ServiceSession(
-                frozen or python_executable(),
-                frozen or service_runner_path(),
-                cwd=cwd,
-            )
-            self.log("Runner: %s" % argv[0], "DEBUG")
+            if frozen is not None:
+                session = ServiceSession(frozen, frozen, cwd=cwd)
+            elif self.engine == "spd":
+                from servicecore.config import spd_runner_path
+
+                session = ServiceSession(python_executable(), spd_runner_path(), cwd=cwd)
+            else:
+                session = ServiceSession(python_executable(), service_runner_path(), cwd=cwd)
+            self.log("Runner: %s (%s)" % (" ".join(argv), self.engine), "DEBUG")
+
+            extra_env: dict[str, str] | None = None
+            if self.engine == "spd":
+                extra_env = {"SPD_TRANSPORT": (spd_transport or "auto").strip().lower()}
+                if spd_port:
+                    extra_env["SPD_PORT"] = spd_port
             try:
                 ok = session.start(
                     mode=mode,
@@ -104,6 +130,7 @@ class Controller:
                     loader=loader or None,
                     auth=auth or None,
                     debug=debug,
+                    extra_env=extra_env,
                 )
             except (FileNotFoundError, RuntimeError) as exc:
                 self._start_error = str(exc)
@@ -136,11 +163,56 @@ class Controller:
                     "Connection failed: %s" % getattr(self, "_start_error", "unknown error"),
                     "ERROR",
                 )
-                self.log("Check the cable, USB drivers (UsbDk), and that the phone is in BROM mode.", "WARN")
+                if self.engine == "spd":
+                    self.log(
+                        "Check the USB cable and the SPD/Unisoc driver, and that the phone is in "
+                        "download mode (usually Volume- held while plugging in).",
+                        "WARN",
+                    )
+                else:
+                    self.log("Check the cable, USB drivers (UsbDk), and that the phone is in BROM mode.", "WARN")
                 self._on_disconnect("connection failed")
                 self.session = None
 
         self.run_async("Connecting to device", _work, _done)
+
+    def run_command(
+        self,
+        label: str,
+        command: dict[str, Any],
+        done: Callable[[Any], None] | None = None,
+    ) -> None:
+        """Send one runner command in a worker thread and hand back the result."""
+        session = self.require_session()
+        if session is None:
+            return
+
+        def _work() -> Any:
+            return session.send(command, wait=180.0)
+
+        self.run_async(label, _work, done)
+
+    def scan_usb_devices(self, done: Callable[[list[dict[str, Any]]], None] | None = None) -> None:
+        """Look for connected MediaTek/Spreadtrum download devices."""
+
+        def _work() -> list[dict[str, Any]]:
+            return scan_usb()
+
+        def _done(result: Any) -> None:
+            devices = list(result or [])
+            if devices:
+                for entry in devices:
+                    self.log(
+                        "USB %s: %s %s (%s)"
+                        % (entry.get("usb"), entry.get("vendor"), entry.get("chip"), entry.get("protocol")),
+                        "OK",
+                    )
+            else:
+                self.log("No MediaTek or Spreadtrum download device detected on USB.", "WARN")
+            if done is not None:
+                done(devices)
+
+        self.run_async("Scanning USB devices", _work, _done)
 
     def disconnect(self, *, reboot: bool = False) -> None:
         session = self.session

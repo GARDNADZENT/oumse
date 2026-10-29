@@ -91,6 +91,30 @@ jobs:
           }
           if (-not $json.da_v5) { throw "MTK_DA_V5.bin not reachable from the runner" }
 
+      - name: Self-test the Spreadtrum/Unisoc engine
+        shell: pwsh
+        run: |
+          $exe = "installer-bestmdmtool/frozen/BestMDMToolRunner/BestMDMToolRunner.exe"
+          if (-not (Test-Path $exe)) { throw "BestMDMToolRunner.exe was not built" }
+          $report = Join-Path $env:TEMP "bestmdmtool-spd-selftest.json"
+          if (Test-Path $report) { Remove-Item -Force $report }
+          $proc = Start-Process -FilePath $exe -ArgumentList @("--engine", "spd", "--selftest", "`"$report`"") -Wait -PassThru -NoNewWindow
+          if (-not (Test-Path $report)) { throw "SPD self-test wrote no report (exit $($proc.ExitCode))" }
+          $raw = Get-Content $report -Raw
+          $json = $raw | ConvertFrom-Json
+          Write-Host $raw
+          $raw | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          $detail = $raw -replace "`r?`n", " "
+          if ($detail.Length -gt 1200) { $detail = $detail.Substring(0, 1200) }
+          if ($proc.ExitCode -ne 0 -or -not $json.ok) {
+            Write-Output "::error::SPD engine self-test failed: $detail"
+            throw "SPD engine self-test failed (exit $($proc.ExitCode))"
+          }
+          foreach ($check in @("write_read_ok", "erase_ok", "pac_verified", "pac_roundtrip")) {
+            if (-not $json.$check) { throw "SPD self-test: $check is false" }
+          }
+          if ($json.operations -notcontains "pac_flash") { throw "SPD runner is missing the pac_flash operation" }
+
       - name: Prove the installed layout finds its own runtime
         shell: pwsh
         run: |

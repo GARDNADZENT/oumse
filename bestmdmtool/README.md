@@ -1,8 +1,9 @@
 # BestMDMTool
 
-A no-login MediaTek service workspace. It opens straight into the device
-screen — no account, no server, no heartbeat — and drives the bundled
-mtkclient BROM/DA layer over a persistent session.
+A no-login service workspace for **MediaTek** (BROM/DA, via the bundled
+mtkclient) and **Spreadtrum/Unisoc** (BSL/FDL, via a built-in protocol engine)
+devices. It opens straight into the device screen — no account, no server, no
+heartbeat — and keeps one persistent session per device.
 
 > Use only on devices you own or are explicitly authorized to service.
 
@@ -10,7 +11,7 @@ mtkclient BROM/DA layer over a persistent session.
 
 | Keys | Action |
 | --- | --- |
-| `Ctrl+1` .. `Ctrl+8` | Switch between the eight pages |
+| `Ctrl+1` .. `Ctrl+9` | Switch between the first nine pages |
 | `F5` | Refresh the partition table |
 | `Ctrl+L` | Clear the activity log |
 
@@ -43,6 +44,10 @@ Sidebar navigation with a shared activity log dock and a live status bar.
 | **Advanced Tools** | Raw flash read/erase at a byte offset, live memory peek/poke with hex viewer |
 | **Bootloader** | Lock-state probe via ADB, seccfg unlock/lock over DA, fastboot helpers |
 | **ADB & Fastboot** | Device list, reboot targets, shell, APK install, push/pull |
+| **SPD Toolkit** | Spreadtrum/Unisoc BSL session: transport, partition table, read/write/erase, reboot |
+| **SPD Firmware** | Open a `.pac`, verify every CRC, flash it, extract it, or build a new package (ROM maker) |
+| **SPD DIAG** | AT/DIAG console over the serial port: model, firmware, IMEI, SIM, signal |
+| **Chipsets** | MediaTek + Spreadtrum/Unisoc database with USB ids and USB detection |
 | **Settings** | Session mode (BROM/preloader), transport, custom DA loader, auth file, verbose logging |
 | **About** | Product identity and safety boundaries |
 
@@ -56,10 +61,20 @@ connection open and accepts JSON commands on stdin. The installer ships it as
 pyserial and libusb) because the vendored `runtime/bin` interpreter has no
 C extension modules:
 
+MediaTek engine::
+
 ```
 info, gpt, gpt_export, read, write, erase, dump,
 readflash, writeflash, eraseflash, peek, poke,
 seccfg, reboot, quit
+```
+
+Spreadtrum engine (``BestMDMToolRunner.exe --engine spd``)::
+
+```
+info, partitions, read, write, erase,
+readflash, writeflash, eraseflash,
+pac_open, pac_flash, pac_extract, pac_build, reboot, quit
 ```
 
 Progress, per-step events, and failures stream back as `SVC_*` lines
@@ -68,6 +83,26 @@ Progress, per-step events, and failures stream back as `SVC_*` lines
 
 Destructive actions (write, erase, poke, seccfg, raw flash) always require
 confirmation, and protected partitions are flagged in the table.
+
+## Spreadtrum/Unisoc engine
+
+MediaTek and Spreadtrum devices are handled by two engines behind one client, so
+the GUI, the log and the session lifecycle are identical.
+
+* **Transport** - `auto` (USB first, then the first serial port), `usb`, `serial`
+  with an explicit port, or `simulator` for training without hardware.
+* **Protocol** - the Boot Strap Loader: HDLC frames with CRC16-XMODEM, 32 KiB
+  data blocks, `START`/`MID`/`END` uploads, 16-bit status per command.
+* **Partition table** - read from the FDL when it supports the partition
+  command; otherwise the page falls back to the table inside a PAC package and
+  says so in the status line.
+* **PAC firmware** - `.pac` containers are read, every partition CRC is checked,
+  and a package that fails verification is refused before anything is written.
+  The ROM maker packs a folder of images back into a `BP_R2` container.
+
+The engine constants (command numbers, block sizes, timeouts) live in one file,
+`servicecore/spd/constants.py`, so a device that behaves differently can be
+adapted without touching the UI.
 
 ## Run from source
 

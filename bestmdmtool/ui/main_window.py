@@ -23,6 +23,10 @@ NAV_LABELS = {
     "advanced": "Advanced Tools",
     "bootloader": "Bootloader",
     "adb": "ADB & Fastboot",
+    "spd": "SPD Toolkit",
+    "pac": "SPD Firmware",
+    "diag": "SPD DIAG",
+    "chipsets": "Chipsets",
     "settings": "Settings",
     "about": "About",
 }
@@ -331,12 +335,19 @@ class MainWindow(tk.Tk):
         path = filedialog.askopenfilename(title=title, filetypes=filetypes or [("All files", "*.*")])
         return path or ""
 
-    def ask_save(self, title: str, defaultextension: str = "", filetypes=None) -> str:
+    def ask_save(
+        self, title: str, defaultextension: str = "", filetypes=None, initialfile: str = ""
+    ) -> str:
         path = filedialog.asksaveasfilename(
             title=title,
             defaultextension=defaultextension,
             filetypes=filetypes or [("All files", "*.*")],
+            initialfile=initialfile,
         )
+        return path or ""
+
+    def ask_directory(self, title: str) -> str:
+        path = filedialog.askdirectory(title=title)
         return path or ""
 
     def ask_dir(self, title: str) -> str:
@@ -358,6 +369,9 @@ class MainWindow(tk.Tk):
             loader=settings.loader,
             auth=settings.auth,
             debug=settings.debug_log,
+            engine=getattr(settings, "engine", "mtk"),
+            spd_transport=getattr(settings, "spd_transport", "auto"),
+            spd_port=getattr(settings, "spd_port", ""),
         )
 
     def disconnect_device(self) -> None:

@@ -63,26 +63,52 @@ the activity log, `F5` refreshes the partition table.
 so a typo such as `self._toggle_log()` (silently swallowed before) fails the
 build instead of the user.
 
+## What's new in 0.4.0
+
+**Spreadtrum / Unisoc support.** A second engine, side by side with MediaTek:
+
+| Page | What it does |
+| --- | --- |
+| **SPD Toolkit** | BSL session: transport (auto/USB/serial/simulator), partition table, read, write, erase, reboot |
+| **SPD Firmware** | Open a `.pac`, verify every partition CRC, flash it, extract it, or build a new package from a folder |
+| **SPD DIAG** | AT console over the serial port: model, firmware, IMEI, SIM, signal |
+| **Chipsets** | MediaTek + Spreadtrum/Unisoc database with USB ids and one-click USB detection |
+
+**Both families in one workspace.** Settings has a **Chip family** selector
+(`mtk` / `spd`); the Connect button opens the matching engine. MediaTek keeps
+the mtkclient BROM/DA backend, Spreadtrum gets a first-party BSL/FDL engine
+(HDLC framing, CRC16, 32 KiB blocks, FDL partition table).
+
+**No hardware needed to prove it.** CI runs the frozen runner with
+`--engine spd --selftest`, which drives the real protocol against an in-memory
+device: write, read-back, erase and PAC round-trip all have to pass before a
+release is published.
+
+**Honest limits.** The SPD engine's command numbers and timings live in one file
+(`servicecore/spd/constants.py`). PAC reading/writing is verified on packages
+this tool builds and on the per-partition CRCs of any `.pac` you open; a package
+that fails verification is refused before anything is written.
+
 ## 1. Download the finished installer (easiest)
 
 **Direct link:**
 
-<https://github.com/GARDNADZENT/oumse/releases/download/v0.3.5/BestMDMToolSetup-0.3.5.exe>
+<https://github.com/GARDNADZENT/oumse/releases/download/v0.4.0/BestMDMToolSetup-0.4.0.exe>
 
 **Release page** (also has `SHA256SUMS.txt`):
 
-<https://github.com/GARDNADZENT/oumse/releases/tag/v0.3.5>
+<https://github.com/GARDNADZENT/oumse/releases/tag/v0.4.0>
 
 | Item | Value |
 | --- | --- |
-| File | `BestMDMToolSetup-0.3.5.exe` |
+| File | `BestMDMToolSetup-0.4.0.exe` |
 | Size | ~64 MiB |
 | Built by | GitHub Actions, Windows `windows-latest` |
 | Signing | **Not signed** — SmartScreen will warn (see below) |
 
 Install steps:
 
-1. Run `BestMDMToolSetup-0.3.5.exe`.
+1. Run `BestMDMToolSetup-0.4.0.exe`.
 2. Because the file is not code-signed, Windows shows
    *"Windows protected your PC"*. Click **More info → Run anyway**.
 3. Finish setup, then launch **BestMDMTool** from the Start Menu.
@@ -95,7 +121,7 @@ Python is **not required** on the target PC: the installer ships a standalone
 ### Verify the download (optional but recommended)
 
 ```powershell
-Get-FileHash .\BestMDMToolSetup-0.3.5.exe -Algorithm SHA256
+Get-FileHash .\BestMDMToolSetup-0.4.0.exe -Algorithm SHA256
 ```
 
 Compare the output with the contents of `SHA256SUMS.txt` on the release page.
@@ -144,7 +170,7 @@ The script:
 2. installs Inno Setup 6 automatically if `ISCC.exe` is missing (winget, then a
    direct download);
 3. compiles the installer to
-   `installer-bestmdmtool\artifacts\BestMDMToolSetup-0.3.5.exe`;
+   `installer-bestmdmtool\artifacts\BestMDMToolSetup-0.4.0.exe`;
 4. writes `installer-bestmdmtool\artifacts\SHA256SUMS.txt`.
 
 Alternative entry points:

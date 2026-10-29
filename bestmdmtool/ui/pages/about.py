@@ -23,9 +23,14 @@ class AboutPage(BasePage):
         for title, body in (
             (
                 "What this is",
-                "A no-login MediaTek service workspace. It drives the bundled mtkclient\n"
-                "BROM/DA layer for partition reads, writes, erases, backups, raw flash\n"
-                "access, seccfg operations, plus ADB and Fastboot tasks.",
+                "A no-login service workspace for two chip families.\n"
+                "\n"
+                "MediaTek: the bundled mtkclient BROM/DA layer, for partition reads,\n"
+                "writes, erases, backups, raw flash access, seccfg and ADB/Fastboot.\n"
+                "\n"
+                "Spreadtrum/Unisoc: a built-in BSL/FDL engine with a partition table,\n"
+                "read/write/erase, PAC firmware flashing, PAC packaging (ROM maker)\n"
+                "and an AT/DIAG console.",
             ),
             (
                 "What this is not",
@@ -36,8 +41,9 @@ class AboutPage(BasePage):
             ("Authorized use", AUTHORIZED_USE),
             (
                 "Components",
-                "mtkclient 2.1.4 (GPLv3) for the DA/BROM protocol, the bundled Python\n"
-                "runtime for headless runners, Android platform tools for ADB/Fastboot.",
+                "mtkclient 2.1.4 (GPLv3) for the MediaTek DA/BROM protocol, a first-party\n"
+                "Spreadtrum BSL/FDL implementation, the bundled Python runtime for the\n"
+                "headless runners, Android platform tools for ADB/Fastboot.",
             ),
         ):
             block = tk.Frame(card.body, bg=theme.PANEL)

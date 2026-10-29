@@ -13,7 +13,7 @@ from .base import BasePage
 class DashboardPage(BasePage):
     key = "dashboard"
     heading = "Device Workspace"
-    description = "Live MediaTek session summary. Connect a device to fill in the details."
+    description = "Live session summary for MediaTek (BROM) and Spreadtrum (BSL) devices."
 
     def build(self) -> None:
         tiles = tk.Frame(self.content, bg=theme.BG)

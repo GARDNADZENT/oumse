@@ -32,6 +32,14 @@ def _ensure_import_path() -> None:
             sys.path.append(str(extra))
 
 
+def _engine_from_argv() -> str:
+    if "--engine" in sys.argv:
+        index = sys.argv.index("--engine")
+        if len(sys.argv) > index + 1:
+            return sys.argv[index + 1].strip().lower()
+    return "mtk"
+
+
 def _libusb_candidates() -> list[str]:
     """Return places mtkclient expects to find the libusb shared library."""
     from pathlib import Path
@@ -115,6 +123,18 @@ def run_selftest(report_path: str) -> int:
 
 
 def main() -> int:
+    if "--selftest" in sys.argv and _engine_from_argv() == "spd":
+        _ensure_import_path()
+        from servicecore.runner.spd_runner import selftest as spd_selftest
+
+        index = sys.argv.index("--selftest")
+        target = (
+            sys.argv[index + 1]
+            if len(sys.argv) > index + 1
+            else os.path.join(tempfile.gettempdir(), "bestmdmtool-spd-selftest.json")
+        )
+        return spd_selftest(target)
+
     if "--selftest" in sys.argv:
         index = sys.argv.index("--selftest")
         target = (
@@ -125,6 +145,20 @@ def main() -> int:
         return run_selftest(target)
 
     _ensure_import_path()
+    engine = "mtk"
+    if "--engine" in sys.argv:
+        index = sys.argv.index("--engine")
+        if len(sys.argv) > index + 1:
+            engine = sys.argv[index + 1].strip().lower()
+    if engine == "spd":
+        from servicecore.runner.spd_runner import main as spd_main
+
+        spd_main()
+        return 0
+    if engine != "mtk":
+        sys.stderr.write("unknown engine: %s\n" % engine)
+        return 2
+
     from servicecore.runner.service_runner import main as runner_main
 
     runner_main()

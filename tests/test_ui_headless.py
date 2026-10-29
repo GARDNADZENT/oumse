@@ -9,6 +9,7 @@ Windows desktop raises here too.
 from __future__ import annotations
 
 import ast
+import sys
 import tempfile
 import time
 import unittest
@@ -309,6 +310,151 @@ class PageActionTests(unittest.TestCase):
         page._refresh_paths()
         page._run_selftest()
         self.assertFalse(self._errors(), self._errors())
+
+
+class SpreadtrumPageTests(unittest.TestCase):
+    """The SPD pages must work against the simulator, exactly like real hardware."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        install_fake_tkinter(force=True)
+        from bestmdmtool import branding
+        from bestmdmtool.ui.main_window import MainWindow
+
+        cls.app = MainWindow(
+            product_name=branding.PRODUCT_NAME,
+            product_title=branding.PRODUCT_TITLE,
+            product_version=branding.PRODUCT_VERSION,
+            product_subtitle=branding.PRODUCT_SUBTITLE,
+            authorized_use=branding.AUTHORIZED_USE,
+        )
+
+    def setUp(self) -> None:
+        self._logs: list[tuple[str, str]] = []
+        controller = self.app.controller
+        original = controller._log
+
+        def _record(message: str, level: str = "INFO") -> None:
+            self._logs.append((level, message))
+            original(message, level)
+
+        controller._log = _record
+        self.addCleanup(setattr, controller, "_log", original)
+        app_log = self.app.log
+
+        def _record_app(message: str, level: str = "INFO") -> None:
+            self._logs.append((level, message))
+            app_log(message, level)
+
+        self.app.log = _record_app
+        self.addCleanup(setattr, self.app, "log", app_log)
+        self.addCleanup(setattr, controller, "session", None)
+        self.addCleanup(setattr, controller, "partitions", [])
+        self.app.ask_save = lambda *args, **kwargs: "/tmp/smoke/out.bin"
+        self.app.ask_open = lambda *args, **kwargs: "/tmp/smoke/in.bin"
+        self.app.ask_directory = lambda *args, **kwargs: "/tmp/smoke"
+        self.app.confirm = lambda *args, **kwargs: True
+
+    def _spd_session(self):
+        """A real SPD session against the in-memory device, wrapped in a ServiceSession."""
+        from servicecore.service_session import ServiceSession
+
+        session = ServiceSession(sys.executable, ROOT / "servicecore" / "runner" / "spd_runner.py")
+        session.env = {"SPD_TRANSPORT": "simulator"}
+        self.assertTrue(session.start(wait=60.0), session.last_error)
+        self.addCleanup(session.stop)
+        return session
+
+    def test_spd_page_loads_the_partition_table(self) -> None:
+        session = self._spd_session()
+        self.app.controller.session = session
+        self.app.controller.device = dict(session.device)
+
+        page = self.app._pages["spd"]
+        page._load_partitions()
+
+        self.assertTrue(
+            _wait_for(lambda: bool(page.tree.get_children())),
+            "the SPD page never rendered a partition table",
+        )
+        values = page.tree.item(page.tree.get_children()[0], "values")
+        self.assertEqual(values[0], "splloader")
+
+    def test_spd_write_and_read_back(self) -> None:
+        import tempfile
+
+        session = self._spd_session()
+        self.app.controller.session = session
+        self.app.controller.device = dict(session.device)
+
+        work = Path(tempfile.mkdtemp())
+        source = work / "boot.img"
+        source.write_bytes(b"\xa5" * 2048)
+        self.app.ask_open = lambda *args, **kwargs: str(source)
+
+        page = self.app._pages["spd"]
+        page._load_partitions()
+        self.assertTrue(_wait_for(lambda: bool(page.tree.get_children())))
+
+        page.tree.selection_set((page.tree.get_children()[2],))
+        page._write_selected()
+
+        self.assertTrue(
+            _wait_for(lambda: any("Wrote" in text for _level, text in self._logs)),
+            self._logs,
+        )
+
+    def test_pac_page_builds_and_verifies_a_package(self) -> None:
+        import tempfile
+
+        session = self._spd_session()
+        self.app.controller.session = session
+
+        work = Path(tempfile.mkdtemp())
+        folder = work / "images"
+        folder.mkdir()
+        (folder / "boot.bin").write_bytes(b"\x01" * 4096)
+        (folder / "system.bin").write_bytes(b"\x02" * 8192)
+        target = work / "built.pac"
+
+        page = self.app._pages["pac"]
+        page.folder_row.set(str(folder))
+        self.app.ask_save = lambda *args, **kwargs: str(target)
+        page._build_pac()
+
+        self.assertTrue(_wait_for(lambda: target.is_file()), "no PAC was written")
+        self.assertTrue(_wait_for(lambda: "CRC check passed" in page.summary_label._config.get("text", "")), 
+                        page.summary_label._config)
+        self.assertTrue(any("Built" in text for _level, text in self._logs), self._logs)
+
+    def test_chipsets_page_lists_both_families(self) -> None:
+        page = self.app._pages["chipsets"]
+        page.vendor_var.set("All")
+        page.search_var.set("")
+        page._render()
+        names = [page.tree.item(item, "values")[0] for item in page.tree.get_children()]
+        self.assertIn("MT6768", names)
+        self.assertIn("SC9863A", names)
+
+        page.vendor_var.set("SPD")
+        page._render()
+        vendors = {page.tree.item(item, "values")[1] for item in page.tree.get_children()}
+        self.assertEqual(vendors, {"SPD"})
+
+    def test_diag_page_sends_a_command(self) -> None:
+        from tests.test_chipsets_diag import _FakePort
+
+        page = self.app._pages["diag"]
+        page.console = __import__("servicecore.spd.diag", fromlist=["AtConsole"]).AtConsole(
+            _FakePort({"ATI": b"\r\nSC9863A\r\nOK\r\n"})
+        )
+        page.command_var.set("ATI")
+        page._send()
+
+        self.assertTrue(
+            _wait_for(lambda: "SC9863A" in page.output.get("1.0", "end")),
+            page.output.get("1.0", "end"),
+        )
 
 
 class UiContractTests(unittest.TestCase):

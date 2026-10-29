@@ -38,6 +38,7 @@ DEFAULT_PYTHON = BIN_DIR / "python.exe"
 SESSION_RUNNER = LIB_DIR / "oumse_brom_session_runner.py"
 ONE_SHOT_RUNNER = LIB_DIR / "oumse_brom_runner.py"
 SERVICE_RUNNER = ROOT / "servicecore" / "runner" / "service_runner.py"
+SPD_RUNNER = ROOT / "servicecore" / "runner" / "spd_runner.py"
 
 
 def _override(name: str, default: Path) -> Path:
@@ -106,17 +107,31 @@ def frozen_runner_path() -> Path | None:
     return None
 
 
-def runner_command() -> tuple[list[str], Path]:
-    """Return ``(argv, cwd)`` for launching the device runner."""
+def runner_command(engine: str = "mtk") -> tuple[list[str], Path]:
+    """Return ``(argv, cwd)`` for launching the device runner for ``engine``.
+
+    ``mtk`` is the MediaTek BROM/DA engine (mtkclient), ``spd`` the
+    Spreadtrum/Unisoc BSL engine. Both speak the same line protocol, so the
+    caller only has to pick the engine name.
+    """
+    engine = (engine or "mtk").strip().lower()
     frozen = frozen_runner_path()
     if frozen is not None:
-        return [str(frozen)], frozen.parent
+        argv = [str(frozen)]
+        if engine != "mtk":
+            argv += ["--engine", engine]
+        return argv, frozen.parent
     interpreter = python_executable()
-    script = service_runner_path()
+    script = spd_runner_path() if engine == "spd" else service_runner_path()
     return [str(interpreter), "-u", str(script)], script.parent
 
 
-def selfcheck_command() -> tuple[list[str], Path] | None:
+def spd_runner_path() -> Path:
+    """Path to the Spreadtrum runner script (source checkouts)."""
+    return _override("SPD_RUNNER", SPD_RUNNER)
+
+
+def selfcheck_command(engine: str = "mtk") -> tuple[list[str], Path] | None:
     """Return the command that runs the backend self-test.
 
     The frozen runner proves the whole device stack without opening a session;
@@ -124,7 +139,16 @@ def selfcheck_command() -> tuple[list[str], Path] | None:
     """
     frozen = frozen_runner_path()
     if frozen is not None:
-        return [str(frozen), "--selftest"], frozen.parent
+        argv = [str(frozen)]
+        if engine and engine != "mtk":
+            argv += ["--engine", engine]
+        return [*argv, "--selftest"], frozen.parent
+
+    script = spd_runner_path() if engine == "spd" else None
+    if script is not None and script.is_file():
+        interpreter = python_executable()
+        if interpreter.is_file():
+            return [str(interpreter), "-u", str(script), "--selftest"], script.parent
 
     entry = ROOT / "installer-bestmdmtool" / "runner_entry.py"
     if entry.is_file():

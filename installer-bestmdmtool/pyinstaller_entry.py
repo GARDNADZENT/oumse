@@ -71,7 +71,13 @@ def run_selftest(report_path: str) -> int:
                 "runtime_lib": (ROOT / "runtime" / "lib").is_dir(),
             }
         )
-        report["ok"] = bool(report["runner_exists"] and report["python_exists"] and report["runtime_lib"])
+        required_pages = {"dashboard", "partitions", "flasher", "advanced", "bootloader", "adb", "spd", "pac", "diag",
+                          "chipsets", "settings", "about"}
+        missing = sorted(required_pages - set(report["pages"]))
+        report["missing_pages"] = missing
+        report["ok"] = bool(
+            report["runner_exists"] and report["python_exists"] and report["runtime_lib"] and not missing
+        )
     except Exception:
         report["error"] = traceback.format_exc()
 

@@ -88,6 +88,7 @@ class ServiceSession:
         transport: str = "auto",
         debug: bool = False,
         wait: float = 180.0,
+        extra_env: dict[str, str] | None = None,
     ) -> bool:
         if self.is_running:
             raise RuntimeError("A device session is already running.")
@@ -119,6 +120,11 @@ class ServiceSession:
         else:
             popen_env.pop("SVC_MTK_AUTH", None)
         popen_env["SVC_LOG_DEBUG"] = "1" if debug else "0"
+        for key, value in (extra_env or {}).items():
+            if value is None:
+                popen_env.pop(key, None)
+            else:
+                popen_env[str(key)] = str(value)
         # Tell the runner where the vendored runtime and DA loaders live.
         popen_env.setdefault("SVC_ROOT", str(ROOT))
 
@@ -249,9 +255,10 @@ class ServiceSession:
             if event.kind == "ready":
                 payload = event.payload if isinstance(event.payload, dict) else {}
                 self._ready.set()
-                self.device = {
-                    "chip": payload.get("chip", ""),
-                }
+                # Keep every field the runner sent (engine, version, transport,
+                # flash size ...); the UI decides which ones it shows.
+                self.device = {key: value for key, value in payload.items() if key != "partitions"}
+                self.device.setdefault("chip", "")
                 self.partitions = list(payload.get("partitions") or [])
             if event.kind == "data":
                 # SVC_DATA carries the peek payload; it is the completion signal.
