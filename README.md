@@ -1,5 +1,9 @@
 # Oumse GSM Tool Pro / BestMDMTool — No-Login Community Front-Ends
 
+> **Just want the installer?** Download
+> [`BestMDMToolSetup-0.2.0.exe`](https://github.com/GARDNADZENT/oumse/releases/download/v0.2.0/BestMDMToolSetup-0.2.0.exe)
+> (self-contained, no login, no Python needed). Step-by-step instructions: [GET_BESTMDMTOOL.md](GET_BESTMDMTOOL.md).
+
 This repository now contains **two directly opening, no-login front-ends** for the existing
 MediaTek BROM runner:
 
