@@ -146,8 +146,12 @@ jobs:
             Download `BestMDMToolSetup-*.exe` below, run it, and launch
             **BestMDMTool** from the Start Menu.
 
-            Requirements: Windows 10/11 and Python 3.10+ with Tkinter
-            (the installer warns if Python is missing).
+            Requirements: Windows 10/11. No Python install is needed — the GUI and
+            the device backend are frozen bundles, and CI proves the backend can
+            import mtkclient, load libusb and reach the DA loaders before publishing.
+
+            Verify the download with `SHA256SUMS.txt`. The installer is unsigned, so
+            SmartScreen shows *More info -> Run anyway* on first launch.
 
             Use only on devices you own or are explicitly authorized to service.
           files: |
