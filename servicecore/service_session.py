@@ -22,6 +22,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from .config import ROOT
+
 
 @dataclass(frozen=True, slots=True)
 class ServiceEvent:
@@ -68,7 +70,9 @@ class ServiceSession:
         self._done: dict[str, CommandResult] = {}
         self._cond = threading.Condition()
         self._ready = threading.Event()
+        self._finished = threading.Event()
         self._raw: list[str] = []
+        self.last_error = ""
 
     # -- lifecycle ---------------------------------------------------------
     @property
@@ -87,10 +91,18 @@ class ServiceSession:
     ) -> bool:
         if self.is_running:
             raise RuntimeError("A device session is already running.")
-        if not self.python_exe.exists():
-            raise FileNotFoundError("Python executable not found: %s" % self.python_exe)
-        if not self.runner_path.is_file():
-            raise FileNotFoundError("Runner not found: %s" % self.runner_path)
+
+        packaged = self.runner_path.suffix.lower() == ".exe"
+        if packaged:
+            if not self.runner_path.is_file():
+                raise FileNotFoundError("Runner executable not found: %s" % self.runner_path)
+            command = [str(self.runner_path)]
+        else:
+            if not self.python_exe.exists():
+                raise FileNotFoundError("Python executable not found: %s" % self.python_exe)
+            if not self.runner_path.is_file():
+                raise FileNotFoundError("Runner not found: %s" % self.runner_path)
+            command = [str(self.python_exe), "-u", str(self.runner_path)]
 
         popen_env = os.environ.copy()
         popen_env.update(self.env)
@@ -107,29 +119,55 @@ class ServiceSession:
         else:
             popen_env.pop("SVC_MTK_AUTH", None)
         popen_env["SVC_LOG_DEBUG"] = "1" if debug else "0"
+        # Tell the runner where the vendored runtime and DA loaders live.
+        popen_env.setdefault("SVC_ROOT", str(ROOT))
 
         creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-        self._proc = subprocess.Popen(
-            [str(self.python_exe), "-u", str(self.runner_path)],
-            cwd=str(self.cwd),
-            env=popen_env,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            bufsize=1,
-            creationflags=creationflags,
-        )
+        try:
+            self._proc = subprocess.Popen(
+                command,
+                cwd=str(self.cwd),
+                env=popen_env,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                bufsize=1,
+                creationflags=creationflags,
+            )
+        except OSError as exc:
+            self._proc = None
+            self.last_error = "cannot start runner (%s): %s" % (command[0], exc)
+            return False
         self._ready.clear()
+        self._finished.clear()
+        self.last_error = ""
         self._reader = threading.Thread(target=self._read_loop, name="svc-reader", daemon=True)
         self._reader.start()
-        return self._ready.wait(timeout=wait) and self.is_running
+
+        # Wait for a real SVC_READY, but stop immediately if the runner dies.
+        deadline = time.monotonic() + wait
+        while time.monotonic() < deadline:
+            if self._ready.is_set() and self.is_running:
+                return True
+            if self._finished.is_set() or self._proc.poll() is not None:
+                break
+            self._ready.wait(0.2)
+        if self._ready.is_set() and self.is_running:
+            return True
+
+        # The runner exited (or never reached READY): keep the log tail so the
+        # caller can show the real reason instead of a blank "connected" state.
+        self.last_error = self._failure_hint()
+        self.stop()
+        return False
 
     def stop(self, *, reboot: bool = False, timeout: float = 5.0) -> None:
         proc = self._proc
-        if proc is None:
+        if proc is None or proc.poll() is not None:
+            self._proc = None
             return
         try:
             if reboot:
@@ -143,6 +181,12 @@ class ServiceSession:
         except Exception:
             try:
                 proc.kill()
+            except Exception:
+                pass
+        for stream in (proc.stdin, proc.stdout):
+            try:
+                if stream is not None:
+                    stream.close()
             except Exception:
                 pass
         self._proc = None
@@ -161,7 +205,7 @@ class ServiceSession:
             event = self._parse(line)
             self.events.put(event)
             self._dispatch(event)
-        self._ready.set()
+        self._finished.set()
         with self._cond:
             self._cond.notify_all()
 
@@ -193,24 +237,33 @@ class ServiceSession:
         with self._cond:
             if event.kind == "ready":
                 payload = event.payload if isinstance(event.payload, dict) else {}
+                self._ready.set()
                 self.device = {
                     "chip": payload.get("chip", ""),
                 }
                 self.partitions = list(payload.get("partitions") or [])
-            if event.kind in ("ok", "fail"):
-                op = event.topic
-                bucket = self._pending.setdefault(op, [])
-                bucket.append(event)
-                detail = event.message
-                data = b""
-                if event.kind == "ok" and op == "peek":
-                    data = bytes.fromhex(event.message) if event.message else b""
-                self._done[op] = CommandResult(op=op, ok=event.kind == "ok", detail=detail, data=data)
+            if event.kind == "data":
+                # SVC_DATA carries the peek payload; it is the completion signal.
+                try:
+                    payload = bytes.fromhex(event.message) if event.message else b""
+                except ValueError:
+                    payload = b""
+                self._pending.setdefault("peek", []).append(event)
+                self._done["peek"] = CommandResult(op="peek", ok=True, data=payload)
                 self._cond.notify_all()
                 return
-            if event.kind == "data":
-                bucket = self._pending.setdefault("peek", [])
-                bucket.append(event)
+            if event.kind in ("ok", "fail"):
+                op = event.topic
+                if event.kind == "ok" and op == "peek":
+                    # Wait for SVC_DATA rather than completing with an empty body.
+                    self._pending.setdefault(op, []).append(event)
+                    return
+                self._pending.setdefault(op, []).append(event)
+                self._done[op] = CommandResult(
+                    op=op, ok=event.kind == "ok", detail=event.message, data=b""
+                )
+                self._cond.notify_all()
+                return
 
     # -- commands ----------------------------------------------------------
     def send(self, command: dict[str, Any], *, wait: float | None = None) -> CommandResult | None:
@@ -319,6 +372,22 @@ class ServiceSession:
 
     def recent_output(self, limit: int = 200) -> list[str]:
         return self._raw[-limit:]
+
+    def _failure_hint(self) -> str:
+        """Explain why the runner stopped before it was ready."""
+        interesting = [
+            line
+            for line in self._raw
+            if line.startswith(("SVC_FAIL", "OUMSE_FAIL", "Traceback", "ModuleNotFoundError", "ImportError"))
+            or "Error" in line
+        ]
+        if not interesting:
+            interesting = [line for line in self._raw if not line.startswith("SVC_")][-3:]
+        if not interesting:
+            if self._proc is not None and self._proc.poll() is not None:
+                return "runner exited with code %s" % self._proc.returncode
+            return "runner stopped before reporting ready"
+        return " | ".join(line.strip() for line in interesting[-3:])[:400]
 
 
 def find_partition(partitions: list[dict[str, Any]], name: str) -> dict[str, Any] | None:

@@ -50,6 +50,22 @@ LOG = logging.getLogger("service_runner")
 # Windows serial patches from the existing runner, then import mtkclient.
 # ---------------------------------------------------------------------------
 def _runtime_lib() -> Path:
+    """Find the vendored mtkclient + DA files, frozen or from source."""
+    for env_name in ("SVC_ROOT", "BESTMDMTOOL_ROOT", "OUMSE_ROOT"):
+        raw = (os.environ.get(env_name) or "").strip()
+        if raw:
+            candidate = Path(raw).expanduser() / "runtime" / "lib"
+            if candidate.is_dir():
+                return candidate
+
+    if getattr(sys, "frozen", False):
+        exe_dir = Path(sys.executable).resolve().parent
+        for base in (exe_dir, exe_dir.parent, exe_dir.parent.parent):
+            candidate = base / "runtime" / "lib"
+            if candidate.is_dir():
+                return candidate
+        return exe_dir
+
     here = Path(__file__).resolve()
     for parent in here.parents:
         candidate = parent / "runtime" / "lib"

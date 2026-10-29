@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from servicecore.adb import AdbTool, FastbootTool, find_adb, find_fastboot
-from servicecore.config import python_executable, service_runner_path
+from servicecore.config import frozen_runner_path, python_executable, runner_command, service_runner_path
 from servicecore.service_session import CommandResult, ServiceSession
 
 from ..settings import Settings
@@ -37,6 +37,7 @@ class Controller:
         self.partitions: list[dict[str, Any]] = []
         self.busy = False
         self.last_progress = 0
+        self._start_error = ""
 
         self._log = log
         self._on_device = on_device
@@ -88,11 +89,14 @@ class Controller:
 
         def _work() -> bool:
             self.log("Opening %s session (transport: %s)..." % (mode.upper(), transport), "STEP")
+            argv, cwd = runner_command()
+            frozen = frozen_runner_path()
             session = ServiceSession(
-                python_executable(),
-                service_runner_path(),
-                cwd=service_runner_path().parent,
+                frozen or python_executable(),
+                frozen or service_runner_path(),
+                cwd=cwd,
             )
+            self.log("Runner: %s" % argv[0], "DEBUG")
             ok = session.start(
                 mode=mode,
                 transport=transport,
@@ -101,12 +105,12 @@ class Controller:
                 debug=debug,
             )
             if not ok:
-                try:
-                    for line in session.recent_output(60):
-                        self.log(line, "DEBUG")
-                except Exception:
-                    pass
+                reason = session.last_error or "no response from the runner"
+                self.log("Device session failed: %s" % reason, "ERROR")
+                for line in session.recent_output(25):
+                    self.log(line, "DEBUG")
                 session.stop()
+                self._start_error = reason
                 return False
             self.session = session
             self.device = dict(session.device)
@@ -116,10 +120,17 @@ class Controller:
 
         def _done(ok: Any) -> None:
             if ok:
-                self.log("Device connected. %d partitions found." % len(self.partitions), "OK")
+                if self.partitions:
+                    self.log("Device connected. %d partitions found." % len(self.partitions), "OK")
+                else:
+                    self.log("Session opened but the partition table is empty.", "WARN")
                 self._on_device(self.device)
             else:
-                self.log("Connection failed. Check USB drivers, cable, and BROM mode.", "ERROR")
+                self.log(
+                    "Connection failed: %s" % getattr(self, "_start_error", "unknown error"),
+                    "ERROR",
+                )
+                self.log("Check the cable, USB drivers (UsbDk), and that the phone is in BROM mode.", "WARN")
                 self._on_disconnect("connection failed")
                 self.session = None
 

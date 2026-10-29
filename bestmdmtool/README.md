@@ -25,8 +25,11 @@ Keyboard: `F5` refreshes the partition table.
 
 ## Operations
 
-Everything runs locally through `servicecore/runner/service_runner.py`, which
-keeps one BROM/DA connection open and accepts JSON commands on stdin:
+Everything runs locally through the device runner, which keeps one BROM/DA
+connection open and accepts JSON commands on stdin. The installer ships it as
+`BestMDMToolRunner.exe` (a frozen build with a complete CPython, pyusb,
+pyserial and libusb) because the vendored `runtime/bin` interpreter has no
+C extension modules:
 
 ```
 info, gpt, gpt_export, read, write, erase, dump,

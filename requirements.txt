@@ -1,6 +1,12 @@
-# The no-login community GUI uses only the Python standard library.
-# Tkinter is part of CPython but may be a separate OS package on Linux
-# (for example: python3-tk on Debian/Ubuntu).
+# BestMDMTool GUI needs only the standard library (Tkinter included).
 #
-# Optional modern theme (not currently required by app/gui.py):
-# customtkinter>=5.2.2
+# These are required only when you run the device runner with your OWN
+# Python (source checkout). The Windows installer ships a frozen runner
+# with everything bundled, so end users need nothing here.
+pyusb>=1.2.1
+pyserial>=3.5
+pycryptodomex>=3.18
+colorama>=0.4.6
+# Optional, used by some mtkclient commands:
+# capstone>=5.0
+# keystone-engine>=0.9.2

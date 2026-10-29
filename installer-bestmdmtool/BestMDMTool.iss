@@ -2,7 +2,7 @@
 ; Inno Setup 6 script. Build with installer-bestmdmtool\build_installer.bat on Windows.
 
 #define MyAppName "BestMDMTool"
-#define MyAppVersion "0.3.0"
+#define MyAppVersion "0.3.1"
 #define MyAppPublisher "BestMDMTool"
 #define MyAppURL "https://example.com/"
 #define MyAppId "{{D3968000-4976-4AF9-91CA-0D5EF2E71E60}"
@@ -11,8 +11,12 @@
 ; app without installing Python. When it is missing we fall back to the
 ; source-mode launcher that needs Python 3.10+ with Tkinter.
 #define FrozenBundle AddBackslash(SourcePath) + "frozen\BestMDMTool\BestMDMTool.exe"
+#define FrozenRunner AddBackslash(SourcePath) + "frozen\BestMDMToolRunner\BestMDMToolRunner.exe"
 #if FileExists(FrozenBundle)
   #define HasFrozenBundle
+#endif
+#if FileExists(FrozenRunner)
+  #define HasFrozenRunner
 #endif
 
 [Setup]
@@ -47,7 +51,7 @@ ArchitecturesAllowed=x86 x64
 ArchitecturesInstallIn64BitMode=x64
 CloseApplications=yes
 RestartApplications=no
-VersionInfoVersion=0.3.0.0
+VersionInfoVersion=0.3.1.0
 VersionInfoCompany={#MyAppPublisher}
 VersionInfoDescription=BestMDMTool installer
 VersionInfoTextVersion={#MyAppVersion}
@@ -81,6 +85,10 @@ Source: "{#SourcePath}..\certifi\*"; DestDir: "{app}\certifi"; Flags: recursesub
 ; Launcher, icon, docs, and metadata
 ; Standalone GUI (needs no Python) when build_exe.ps1 has been run
 Source: "{#SourcePath}frozen\BestMDMTool\*"; DestDir: "{app}\BestMDMTool"; Flags: recursesubdirs createallsubdirs ignoreversion skipifsourcedoesntexist; Excludes: "__pycache__\*,*.pyc,*.pyo"
+
+; Frozen device runner: complete CPython + pyusb/pyserial/libusb.
+; runtime\bin has no *.pyd files, so it cannot import _socket on its own.
+Source: "{#SourcePath}frozen\BestMDMToolRunner\*"; DestDir: "{app}\runtime\runner"; Flags: recursesubdirs createallsubdirs ignoreversion skipifsourcedoesntexist; Excludes: "__pycache__\*,*.pyc,*.pyo"
 
 Source: "{#SourcePath}launcher\*"; DestDir: "{app}\launcher"; Flags: recursesubdirs createallsubdirs ignoreversion
 Source: "{#SourcePath}..\app_icon.ico"; DestDir: "{app}"; Flags: ignoreversion
@@ -121,6 +129,7 @@ Filename: "{sys}\wscript.exe"; Parameters: """{app}\launcher\Launch-BestMDMTool.
 Type: filesandordirs; Name: "{app}\bestmdmtool\__pycache__"
 Type: filesandordirs; Name: "{app}\servicecore\__pycache__"
 Type: filesandordirs; Name: "{app}\runtime\lib\logs"
+Type: filesandordirs; Name: "{app}\runtime\runner"
 Type: files; Name: "{app}\*.log"
 Type: files; Name: "{app}\.remember.dat"
 Type: files; Name: "{app}\hwparam.json"

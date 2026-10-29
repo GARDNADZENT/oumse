@@ -62,11 +62,31 @@ jobs:
             if ($json.pages -notcontains $page) { throw "UI page missing from bundle: $page" }
           }
 
+      - name: Self-test the frozen runner backend
+        shell: pwsh
+        run: |
+          $exe = "installer-bestmdmtool/frozen/BestMDMToolRunner/BestMDMToolRunner.exe"
+          if (-not (Test-Path $exe)) { throw "BestMDMToolRunner.exe was not built" }
+          $report = Join-Path $env:TEMP "bestmdmtool-runner-selftest.json"
+          $env:BESTMDMTOOL_ROOT = (Get-Location).Path
+          $proc = Start-Process -FilePath $exe -ArgumentList @("--selftest", $report) -Wait -PassThru -NoNewWindow
+          if (-not (Test-Path $report)) { throw "Runner self-test report was not written" }
+          $json = Get-Content $report -Raw | ConvertFrom-Json
+          Write-Host ($json | ConvertTo-Json -Depth 4)
+          if ($proc.ExitCode -ne 0) { throw "Runner self-test failed (exit $($proc.ExitCode))" }
+          if (-not $json.ok) { throw "Runner backend self-test reported failure" }
+          if (-not $json.mtkclient) { throw "mtkclient missing from the runner bundle" }
+          if (-not $json.libusb_backend) { throw "libusb backend could not be loaded (missing DLL)" }
+          if (-not $json.da_v5) { throw "MTK_DA_V5.bin not reachable from the runner" }
+
       - name: Verify installer
         shell: pwsh
         run: |
           if (-not (Test-Path installer-bestmdmtool/frozen/BestMDMTool/BestMDMTool.exe)) {
             throw "Standalone BestMDMTool.exe was not built"
+          }
+          if (-not (Test-Path installer-bestmdmtool/frozen/BestMDMToolRunner/BestMDMToolRunner.exe)) {
+            throw "BestMDMToolRunner.exe was not built"
           }
           $exe = Get-ChildItem -Path installer-bestmdmtool/artifacts/*.exe | Select-Object -First 1
           if (-not $exe) { throw "Installer .exe not found in installer-bestmdmtool/artifacts" }
