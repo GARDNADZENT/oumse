@@ -21,7 +21,8 @@ Fail instead of downloading Inno Setup when ISCC.exe is missing.
 [CmdletBinding()]
 param(
     [string]$OutputDir = (Join-Path $PSScriptRoot "artifacts"),
-    [switch]$SkipInnoSetupInstall
+    [switch]$SkipInnoSetupInstall,
+    [switch]$SkipFrozenExe
 )
 
 $ErrorActionPreference = "Stop"
@@ -90,6 +91,20 @@ function Install-InnoSetup {
         throw "Inno Setup installed but ISCC.exe was not found. Install it manually from https://jrsoftware.org/isdl.php."
     }
     return $found
+}
+
+# Build the standalone GUI first so end users do not need Python.
+$buildExe = Join-Path $PSScriptRoot "build_exe.ps1"
+if ($SkipFrozenExe) {
+    Write-Host "Skipping standalone BestMDMTool.exe (-SkipFrozenExe)." -ForegroundColor Yellow
+} elseif (Test-Path $buildExe) {
+    try {
+        & $buildExe
+        if ($LASTEXITCODE -ne 0) { Write-Warning "build_exe.ps1 exited with code $LASTEXITCODE." }
+    } catch {
+        Write-Warning "Could not build the standalone BestMDMTool.exe: $($_.Exception.Message)"
+        Write-Warning "The installer will fall back to the Python launcher."
+    }
 }
 
 $version = (Get-Content -Path (Join-Path $PSScriptRoot "version.txt") -Raw).Trim()

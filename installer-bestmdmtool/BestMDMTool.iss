@@ -1,11 +1,19 @@
-; BestMDMTool - Authorized Device Service
+﻿; BestMDMTool - Authorized Device Service
 ; Inno Setup 6 script. Build with installer-bestmdmtool\build_installer.bat on Windows.
 
 #define MyAppName "BestMDMTool"
-#define MyAppVersion "0.1.0"
+#define MyAppVersion "0.2.0"
 #define MyAppPublisher "BestMDMTool"
 #define MyAppURL "https://example.com/"
 #define MyAppId "{{D3968000-4976-4AF9-91CA-0D5EF2E71E60}"
+
+; Standalone BestMDMTool.exe (built by build_exe.ps1) lets end users run the
+; app without installing Python. When it is missing we fall back to the
+; source-mode launcher that needs Python 3.10+ with Tkinter.
+#define FrozenBundle AddBackslash(SourcePath) + "frozen\BestMDMTool\BestMDMTool.exe"
+#if FileExists(FrozenBundle)
+  #define HasFrozenBundle
+#endif
 
 [Setup]
 AppId={#MyAppId}
@@ -39,7 +47,7 @@ ArchitecturesAllowed=x86 x64
 ArchitecturesInstallIn64BitMode=x64
 CloseApplications=yes
 RestartApplications=no
-VersionInfoVersion=0.1.0.0
+VersionInfoVersion=0.2.0.0
 VersionInfoCompany={#MyAppPublisher}
 VersionInfoDescription=BestMDMTool installer
 VersionInfoTextVersion={#MyAppVersion}
@@ -71,6 +79,9 @@ Source: "{#SourcePath}..\adb_assets\*"; DestDir: "{app}\adb_assets"; Flags: recu
 Source: "{#SourcePath}..\certifi\*"; DestDir: "{app}\certifi"; Flags: recursesubdirs createallsubdirs ignoreversion
 
 ; Launcher, icon, docs, and metadata
+; Standalone GUI (needs no Python) when build_exe.ps1 has been run
+Source: "{#SourcePath}frozen\BestMDMTool\*"; DestDir: "{app}\BestMDMTool"; Flags: recursesubdirs createallsubdirs ignoreversion skipifsourcedoesntexist; Excludes: "__pycache__\*,*.pyc,*.pyo"
+
 Source: "{#SourcePath}launcher\*"; DestDir: "{app}\launcher"; Flags: recursesubdirs createallsubdirs ignoreversion
 Source: "{#SourcePath}..\app_icon.ico"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#SourcePath}..\START_BEST_MDM_TOOL.bat"; DestDir: "{app}"; Flags: ignoreversion
@@ -87,17 +98,24 @@ Source: "{#SourcePath}version.txt"; DestDir: "{app}"; DestName: "VERSION.txt"; F
 Source: "{#SourcePath}..\runtime\lib\LICENSE"; DestDir: "{app}"; DestName: "LICENSE-mtkclient.txt"; Flags: ignoreversion
 
 [Icons]
-Name: "{group}\BestMDMTool"; Filename: "{sys}\wscript.exe"; Parameters: """{app}\launcher\Launch-BestMDMTool.vbs"""; WorkingDir: "{app}"; IconFilename: "{app}\app_icon.ico"; IconIndex: 0
+; Primary shortcut: standalone executable (no Python needed)
+Name: "{group}\BestMDMTool"; Filename: "{app}\BestMDMTool\BestMDMTool.exe"; WorkingDir: "{app}"; IconFilename: "{app}\app_icon.ico"; IconIndex: 0; Check: FileExists(ExpandConstant('{app}\BestMDMTool\BestMDMTool.exe'))
+Name: "{autodesktop}\BestMDMTool"; Filename: "{app}\BestMDMTool\BestMDMTool.exe"; WorkingDir: "{app}"; IconFilename: "{app}\app_icon.ico"; IconIndex: 0; Tasks: desktopicon; Check: FileExists(ExpandConstant('{app}\BestMDMTool\BestMDMTool.exe'))
+
+; Fallback shortcut: runs the Python sources, needs Python 3.10+ with Tkinter
+Name: "{group}\BestMDMTool (Python launcher)"; Filename: "{sys}\wscript.exe"; Parameters: """{app}\launcher\Launch-BestMDMTool.vbs"""; WorkingDir: "{app}"; IconFilename: "{app}\app_icon.ico"; IconIndex: 0; Check: not FileExists(ExpandConstant('{app}\BestMDMTool\BestMDMTool.exe'))
+Name: "{autodesktop}\BestMDMTool (Python launcher)"; Filename: "{sys}\wscript.exe"; Parameters: """{app}\launcher\Launch-BestMDMTool.vbs"""; WorkingDir: "{app}"; IconFilename: "{app}\app_icon.ico"; IconIndex: 0; Tasks: desktopicon; Check: not FileExists(ExpandConstant('{app}\BestMDMTool\BestMDMTool.exe'))
+
 Name: "{group}\README"; Filename: "{app}\README.md"
 Name: "{group}\Uninstall BestMDMTool"; Filename: "{uninstallexe}"
-Name: "{autodesktop}\BestMDMTool"; Filename: "{sys}\wscript.exe"; Parameters: """{app}\launcher\Launch-BestMDMTool.vbs"""; WorkingDir: "{app}"; IconFilename: "{app}\app_icon.ico"; IconIndex: 0; Tasks: desktopicon
 
 [Registry]
 Root: HKLM; Subkey: "Software\{#MyAppName}"; ValueType: string; ValueName: "InstallPath"; ValueData: "{app}"; Flags: uninsdeletekey
 Root: HKLM; Subkey: "Software\{#MyAppName}"; ValueType: string; ValueName: "Version"; ValueData: "{#MyAppVersion}"
 
 [Run]
-Filename: "{sys}\wscript.exe"; Parameters: """{app}\launcher\Launch-BestMDMTool.vbs"""; WorkingDir: "{app}"; Description: "Launch BestMDMTool"; Flags: nowait postinstall skipifsilent unchecked
+Filename: "{app}\BestMDMTool\BestMDMTool.exe"; WorkingDir: "{app}"; Description: "Launch BestMDMTool"; Flags: nowait postinstall skipifsilent unchecked; Check: FileExists(ExpandConstant('{app}\BestMDMTool\BestMDMTool.exe'))
+Filename: "{sys}\wscript.exe"; Parameters: """{app}\launcher\Launch-BestMDMTool.vbs"""; WorkingDir: "{app}"; Description: "Launch BestMDMTool"; Flags: nowait postinstall skipifsilent unchecked; Check: not FileExists(ExpandConstant('{app}\BestMDMTool\BestMDMTool.exe'))
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}\bestmdmtool\__pycache__"
@@ -123,9 +141,12 @@ end;
 function InitializeSetup(): Boolean;
 begin
   Result := True;
+#ifndef HasFrozenBundle
+  // This build ships only the Python sources, so Python with Tkinter is required.
   if not IsPythonWithTkAvailable() then
     MsgBox('Python 3.10 or newer with Tkinter was not detected on this PC.' + #13#10 +
            'The installer will continue, but BestMDMTool needs it to start.' + #13#10 +
            'Install Python from python.org with the tcl/tk option enabled.',
            mbInformation, MB_OK);
+#endif
 end;

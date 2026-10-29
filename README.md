@@ -180,7 +180,7 @@ On Windows, run:
 installer-bestmdmtool\build_installer.bat
 ```
 
-It produces `installer-bestmdmtool\artifacts\BestMDMToolSetup-0.1.0.exe`. See
+It produces `installer-bestmdmtool\artifacts\BestMDMToolSetup-0.2.0.exe`. See
 `installer-bestmdmtool/README.md` and `bestmdmtool/README.md`.
 
 Both installers create Start Menu and optional Desktop shortcuts that launch their respective

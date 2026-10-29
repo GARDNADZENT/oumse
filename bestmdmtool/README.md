@@ -78,7 +78,7 @@ installer-bestmdmtool\build_installer.bat
 This produces:
 
 ```text
-installer-bestmdmtool\artifacts\BestMDMToolSetup-0.1.0.exe
+installer-bestmdmtool\artifacts\BestMDMToolSetup-0.2.0.exe
 ```
 
 The `.exe` can also be built by

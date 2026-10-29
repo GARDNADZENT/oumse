@@ -11,8 +11,9 @@ does not include MDM/FRP bypass, credential, or licensing-bypass logic.
 
 | File | Produced by |
 |---|---|
-| `artifacts/BestMDMToolSetup-0.1.0.exe` | `build_installer.bat` on Windows / GitHub Actions |
-| `artifacts/BestMDMTool-Portable-0.1.0.zip` | `build_portable.py` on any OS |
+| `frozen/BestMDMTool/BestMDMTool.exe` | `build_exe.ps1` (PyInstaller standalone GUI) |
+| `artifacts/BestMDMToolSetup-0.2.0.exe` | `build_installer.bat` on Windows / GitHub Actions |
+| `artifacts/BestMDMTool-Portable-0.2.0.zip` | `build_portable.py` on any OS |
 
 The real Windows installer is built with **Inno Setup 6**. This Linux sandbox does
 not include `ISCC.exe`, so the `.exe` is produced by the Windows CI workflow or
@@ -35,11 +36,13 @@ You can also double-click `BUILD_BESTMDMTOOL_INSTALLER.bat` in Explorer.
 
 The script:
 
+- builds the standalone `frozen/BestMDMTool/BestMDMTool.exe` with PyInstaller
+  (skipped automatically if Python with Tkinter is unavailable);
 - finds `ISCC.exe` on `PATH` or in the usual install locations;
 - if Inno Setup is missing, installs it automatically (winget, then a direct
   download from jrsoftware.org) — no manual setup needed;
 - compiles `installer-bestmdmtool\BestMDMTool.iss`;
-- writes `installer-bestmdmtool\artifacts\BestMDMToolSetup-0.1.0.exe`;
+- writes `installer-bestmdmtool\artifacts\BestMDMToolSetup-0.2.0.exe`;
 - writes `installer-bestmdmtool\artifacts\SHA256SUMS.txt`.
 
 Equivalent direct invocation:
@@ -67,13 +70,15 @@ On any OS with Python 3.10+:
 python installer-bestmdmtool/build_portable.py
 ```
 
-This writes `installer-bestmdmtool/artifacts/BestMDMTool-Portable-0.1.0.zip` and
+This writes `installer-bestmdmtool/artifacts/BestMDMTool-Portable-0.2.0.zip` and
 a matching `.sha256` file. It is a convenience artifact, not a substitute for a
 signed Windows installer.
 
 ## What the installer contains
 
-- `bestmdmtool/` — BestMDMTool GUI and branding
+- `BestMDMTool/` — standalone `BestMDMTool.exe` (PyInstaller, bundled Python +
+  Tkinter), so **end users do not need to install Python**
+- `bestmdmtool/` — BestMDMTool GUI sources (used by the Python fallback launcher)
 - `servicecore/` — shared session, patching, safety, and config code
 - `runtime/bin/` — bundled headless Python 3.12 runtime for the BROM runner
 - `runtime/lib/` — vendored `mtkclient` and the two BROM runners
@@ -109,12 +114,15 @@ the PowerShell window and calls `Start-BestMDMTool.ps1`. That script checks
 `py -3`, `python`, and `python3` for Tkinter, prefers `pythonw.exe`, and starts
 `python -m bestmdmtool` with no login screen.
 
-## Prerequisite warning
+## Requirements for end users
 
-During installation, the Inno Setup script checks for Python with Tkinter. If it
-is not found, installation still continues but a warning is shown. BestMDMTool
-cannot start until Python with Tkinter is installed. The bundled Python runtime
-is only for the headless BROM runner.
+None beyond Windows 10/11 — the installer ships the standalone `BestMDMTool.exe`.
+
+If the frozen executable is missing (a source-only build made with
+`-SkipFrozenExe`), the installer falls back to the Python launch scripts and
+warns during setup when Python 3.10+ with Tkinter is not installed. The bundled
+`runtime/bin` Python is x86 and only drives the headless BROM runner; it has no
+Tkinter, so it cannot host the GUI.
 
 ## Code signing
 

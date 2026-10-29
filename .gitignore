@@ -56,3 +56,4 @@ installer-bestmdmtool/artifacts/*.exe
 installer-bestmdmtool/artifacts/*.zip
 installer-bestmdmtool/artifacts/*.sha256
 installer-bestmdmtool/artifacts/SHA256SUMS.txt
+installer-bestmdmtool/frozen/
