@@ -9,6 +9,7 @@ Windows desktop raises here too.
 from __future__ import annotations
 
 import ast
+import tempfile
 import time
 import unittest
 from pathlib import Path
@@ -172,7 +173,7 @@ class PageActionTests(unittest.TestCase):
         self.app.controller.session = session
         self.app.controller.partitions = list(PARTITIONS)
         self.app.confirm = lambda *args, **kwargs: True
-        self.app.ask_open = lambda *args, **kwargs: "/tmp/smoke/boot.img"
+        self.app.ask_open = lambda *args, **kwargs: str(self.image)
         self.app.ask_save = lambda *args, **kwargs: "/tmp/smoke/out.bin"
         self.addCleanup(setattr, self.app.controller, "session", None)
         return session
@@ -193,6 +194,11 @@ class PageActionTests(unittest.TestCase):
         self.addCleanup(setattr, controller, "_log", original)
         self.app._pages["partitions"].tree.selection = lambda: (("boot",),)
         self.app._pages["partitions"].tree.item = lambda _item, *_args: ("boot",)
+        # The flasher refuses paths that do not exist, so give it a real file.
+        self._workspace = tempfile.TemporaryDirectory()
+        self.addCleanup(self._workspace.cleanup)
+        self.image = Path(self._workspace.name) / "boot.img"
+        self.image.write_bytes(b"\x00" * 4096)
 
     def test_partition_actions_reach_the_session(self) -> None:
         from bestmdmtool.settings import Settings
@@ -231,7 +237,7 @@ class PageActionTests(unittest.TestCase):
     def test_flasher_actions_reach_the_session(self) -> None:
         session = self._install_session()
         page = self.app._pages["flasher"]
-        page.image_row.set("/tmp/smoke/boot.img")
+        page.image_row.set(str(self.image))
         page.partition_var.set("boot")
 
         page._flash_single()
