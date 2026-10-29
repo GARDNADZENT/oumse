@@ -3,9 +3,10 @@
 BestMDMTool is a **separate, no-login** app in this repository. It opens
 straight to a full device workspace — no account, no server, no remote service.
 
-The workspace has eight pages: Dashboard, Partition Manager, Firmware Flasher,
+The workspace has twelve pages: Dashboard, Partition Manager, Firmware Flasher,
 Advanced Tools (raw flash + memory peek/poke), Bootloader, ADB & Fastboot,
-Settings, and About.
+SPD Toolkit, SPD Firmware, SPD DIAG, Chipsets, Settings, and About. It drives
+both **MediaTek** (BROM/DA) and **Spreadtrum/Unisoc** (BSL/FDL) phones.
 
 > Use only on devices you own or are explicitly authorized to service.
 
@@ -102,8 +103,9 @@ that fails verification is refused before anything is written.
 | Item | Value |
 | --- | --- |
 | File | `BestMDMToolSetup-0.4.0.exe` |
-| Size | ~64 MiB |
+| Size | 67,546,929 bytes (64.4 MiB) |
 | Built by | GitHub Actions, Windows `windows-latest` |
+| SHA-256 | `43b514d11ae96f936737256e8e0c5c1c8d00d69ed6468d12382c23eeba464b81` |
 | Signing | **Not signed** — SmartScreen will warn (see below) |
 
 Install steps:
@@ -113,7 +115,9 @@ Install steps:
    *"Windows protected your PC"*. Click **More info → Run anyway**.
 3. Finish setup, then launch **BestMDMTool** from the Start Menu.
 4. The app opens directly — no login screen.
-5. Connect a phone in BROM mode and press **Connect device**.
+5. Pick the chip family in **Settings** (`mtk` or `spd`), then put the phone
+   in BROM (MediaTek) or BSL/download (Spreadtrum) mode and press
+   **Connect device**.
 
 Python is **not required** on the target PC: the installer ships a standalone
 `BestMDMTool.exe` with its own Python + Tkinter runtime.
@@ -125,6 +129,8 @@ Get-FileHash .\BestMDMToolSetup-0.4.0.exe -Algorithm SHA256
 ```
 
 Compare the output with the contents of `SHA256SUMS.txt` on the release page.
+The 0.4.0 installer hashes to
+`43b514d11ae96f936737256e8e0c5c1c8d00d69ed6468d12382c23eeba464b81`.
 
 ---
 
