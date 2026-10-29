@@ -49,8 +49,9 @@ jobs:
           # The frozen bundle is built inside the repo, so point the app at the
           # source tree: this validates module collection, not the install path.
           $env:BESTMDMTOOL_ROOT = (Get-Location).Path
-          & $exe --selftest $report
-          if ($LASTEXITCODE -ne 0) { throw "Frozen app self-test failed (exit $LASTEXITCODE)" }
+          # PowerShell does not wait for GUI-subsystem binaries, so wait explicitly.
+          $proc = Start-Process -FilePath $exe -ArgumentList @("--selftest", $report) -Wait -PassThru -NoNewWindow
+          if ($proc.ExitCode -ne 0) { throw "Frozen app self-test failed (exit $($proc.ExitCode))" }
           if (-not (Test-Path $report)) { throw "Self-test report was not written" }
           $json = Get-Content $report -Raw | ConvertFrom-Json
           Write-Host ($json | ConvertTo-Json -Depth 4)
