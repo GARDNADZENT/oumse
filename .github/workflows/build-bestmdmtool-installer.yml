@@ -9,7 +9,7 @@ on:
       - "v*"
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: bestmdmtool-installer-${{ github.ref }}
@@ -58,3 +58,26 @@ jobs:
           path: installer-bestmdmtool/artifacts/*
           if-no-files-found: error
           retention-days: 30
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: BestMDMTool ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          body: |
+            BestMDMTool — Authorized Device Service (no login).
+
+            Download `BestMDMToolSetup-*.exe` below, run it, and launch
+            **BestMDMTool** from the Start Menu.
+
+            Requirements: Windows 10/11 and Python 3.10+ with Tkinter
+            (the installer warns if Python is missing).
+
+            Use only on devices you own or are explicitly authorized to service.
+          files: |
+            installer-bestmdmtool/artifacts/BestMDMToolSetup-*.exe
+            installer-bestmdmtool/artifacts/SHA256SUMS.txt
