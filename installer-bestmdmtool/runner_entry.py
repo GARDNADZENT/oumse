@@ -30,6 +30,34 @@ def _ensure_import_path() -> None:
             sys.path.insert(0, str(extra))
 
 
+def _libusb_candidates() -> list[str]:
+    """Return places mtkclient expects to find the libusb shared library."""
+    from pathlib import Path
+
+    names = ["libusb32-1.0.dll", "libusb-1.0.dll"] if os.name == "nt" else ["libusb-1.0.so"]
+    roots: list[Path] = []
+    if getattr(sys, "frozen", False):
+        roots.append(Path(sys.executable).resolve().parent)
+    here = Path(__file__).resolve().parent
+    roots.extend([here, here.parent])
+    for env_name in ("BESTMDMTOOL_ROOT", "OUMSE_ROOT", "SVC_ROOT"):
+        raw = (os.environ.get(env_name) or "").strip()
+        if raw:
+            roots.append(Path(raw).expanduser())
+
+    candidates: list[str] = []
+    for root in roots:
+        for name in names:
+            candidates.append(str(root / name))
+            candidates.append(str(root / "runtime" / "lib" / "mtkclient" / "Windows" / name))
+    candidates.extend(names)  # let the loader search PATH / the exe directory
+    seen: list[str] = []
+    for item in candidates:
+        if item not in seen:
+            seen.append(item)
+    return seen
+
+
 def run_selftest(report_path: str) -> int:
     _ensure_import_path()
     report: dict[str, object] = {
@@ -45,8 +73,18 @@ def run_selftest(report_path: str) -> int:
         report["pyserial"] = getattr(serial, "VERSION", "?")
         report["pyusb"] = getattr(usb, "__version__", "?")
 
-        backend = usb.backend.libusb1.get_backend()
+        backend = None
+        searched = _libusb_candidates()
+        for candidate in searched:
+            try:
+                backend = usb.backend.libusb1.get_backend(find_library=lambda _name, p=candidate: p)
+            except Exception:
+                backend = None
+            if backend is not None:
+                report["libusb_dll"] = candidate
+                break
         report["libusb_backend"] = backend is not None
+        report["libusb_search"] = searched[:8]
         devices = list(usb.core.find(find_all=True, backend=backend) or []) if backend else []
         report["usb_devices"] = len(devices)
 
@@ -54,7 +92,7 @@ def run_selftest(report_path: str) -> int:
         from mtkclient.Library.DA.mtk_da_handler import DaHandler  # noqa: F401
         from mtkclient.Library.mtk_class import Mtk  # noqa: F401
 
-        from servicecore.runner.service_runner import LIB_DIR, HANDLERS
+        from servicecore.runner.service_runner import HANDLERS, LIB_DIR
 
         report["mtkclient"] = True
         report["runtime_lib"] = str(LIB_DIR)

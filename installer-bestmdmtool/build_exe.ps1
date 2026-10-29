@@ -114,6 +114,19 @@ Write-Host "Building BestMDMToolRunner.exe (device backend)..."
 )
 if ($LASTEXITCODE -ne 0) { throw "PyInstaller failed for the runner (exit $LASTEXITCODE)." }
 
+# mtkclient loads libusb by bare name, so it must sit next to the runner exe.
+$runnerDir = Join-Path $frozenDir "BestMDMToolRunner"
+$libusbSource = Join-Path $libDir "mtkclient\Windows"
+foreach ($dll in @("libusb-1.0.dll", "libusb32-1.0.dll")) {
+    $source = Join-Path $libusbSource $dll
+    if (Test-Path $source) {
+        Copy-Item -Path $source -Destination (Join-Path $runnerDir $dll) -Force
+        Write-Host "Bundled $dll"
+    } else {
+        Write-Warning "libusb DLL not found: $source"
+    }
+}
+
 foreach ($exe in @(
         (Join-Path $frozenDir "BestMDMTool\BestMDMTool.exe"),
         (Join-Path $frozenDir "BestMDMToolRunner\BestMDMToolRunner.exe")

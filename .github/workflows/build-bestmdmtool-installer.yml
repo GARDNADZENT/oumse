@@ -78,6 +78,7 @@ jobs:
           if (-not $json.mtkclient) { throw "mtkclient missing from the runner bundle" }
           if (-not $json.libusb_backend) { throw "libusb backend could not be loaded (missing DLL)" }
           if (-not $json.da_v5) { throw "MTK_DA_V5.bin not reachable from the runner" }
+          $json | ConvertTo-Json -Depth 4 | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
 
       - name: Verify installer
         shell: pwsh
@@ -87,6 +88,11 @@ jobs:
           }
           if (-not (Test-Path installer-bestmdmtool/frozen/BestMDMToolRunner/BestMDMToolRunner.exe)) {
             throw "BestMDMToolRunner.exe was not built"
+          }
+          foreach ($dll in @("libusb-1.0.dll", "libusb32-1.0.dll")) {
+            if (-not (Test-Path "installer-bestmdmtool/frozen/BestMDMToolRunner/$dll")) {
+              throw "$dll is missing next to BestMDMToolRunner.exe"
+            }
           }
           $exe = Get-ChildItem -Path installer-bestmdmtool/artifacts/*.exe | Select-Object -First 1
           if (-not $exe) { throw "Installer .exe not found in installer-bestmdmtool/artifacts" }
