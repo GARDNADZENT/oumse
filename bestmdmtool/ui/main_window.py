@@ -9,6 +9,7 @@ from typing import Any
 
 from servicecore.adb import find_adb, find_fastboot
 
+from .. import applog
 from . import theme
 from .controller import Controller
 from .pages import PAGES
@@ -266,6 +267,7 @@ class MainWindow(tk.Tk):
     # -- shared services for pages ----------------------------------------
     def log(self, message: str, level: str = "INFO") -> None:
         self.console.write(message, level)
+        applog.record(message, level)
 
     def set_status(self, text: str, kind: str = "idle") -> None:
         colors = {

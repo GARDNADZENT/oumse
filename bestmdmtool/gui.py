@@ -7,7 +7,7 @@ account, and no remote service.
 from __future__ import annotations
 
 try:
-    import tkinter as tk
+    import tkinter  # noqa: F401  # imported for the availability check below
 except ImportError as exc:  # pragma: no cover - depends on the host Python install
     raise ImportError(
         "BestMDMTool needs a Python interpreter with Tkinter. On Windows use the "
@@ -39,11 +39,27 @@ class BestMDMToolApp(MainWindow):
 
 
 def main() -> None:
+    """Open the workspace window. No login, no server, no account."""
+
+    from .applog import configure, write_crash
+
+    configure()
     try:
         app = BestMDMToolApp()
-    except tk.TclError as exc:
-        raise SystemExit(f"Cannot start GUI: {exc}") from exc
-    app.mainloop()
+        app.mainloop()
+    except Exception:
+        report = write_crash()
+        try:
+            from tkinter import messagebox
+
+            messagebox.showerror(
+                "%s stopped unexpectedly" % PRODUCT_NAME,
+                "A crash report was written to:\n\n%s\n\n"
+                "Send that file with a description of what you were doing." % report,
+            )
+        except Exception:
+            pass
+        raise
 
 
 if __name__ == "__main__":

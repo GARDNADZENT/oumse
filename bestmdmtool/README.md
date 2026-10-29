@@ -6,6 +6,14 @@ mtkclient BROM/DA layer over a persistent session.
 
 > Use only on devices you own or are explicitly authorized to service.
 
+## Logs and crash reports
+
+Every activity-log line is mirrored to
+`%LOCALAPPDATA%\BestMDMTool\logs\activity.log` (rotated at 1 MB, three
+generations). If the window closes unexpectedly, a `crash-<timestamp>.log` lands
+in the same folder and a dialog names it. **Settings -> Open log folder** opens
+it; attach `activity.log` plus the newest crash report to a bug report.
+
 ## Diagnosing a failed connection
 
 **Settings -> Run backend self-test** executes `BestMDMToolRunner.exe --selftest`

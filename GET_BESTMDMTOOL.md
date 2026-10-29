@@ -27,26 +27,38 @@ installed app finds its own `runtime\lib` and libusb DLLs.
 `runtime\bin` interpreter has no C extensions (so `_socket` was always missing),
 which is why the backend now ships as a frozen `BestMDMToolRunner.exe`.
 
+## What's new in 0.3.3
+
+**Logs and crash reports.** Every line in the activity log is also written to
+`%LOCALAPPDATA%\BestMDMTool\logs\activity.log`, and an unexpected error now
+writes `crash-<timestamp>.log` and shows a dialog pointing at it instead of the
+window silently disappearing. **Settings -> Open log folder** opens the folder.
+
+**Whole-window tests.** The build now constructs the real window with all eight
+pages, switches pages, feeds it a simulated device and drives a partition read in
+CI, plus static checks that every page only touches real controller and theme
+members.
+
 ## 1. Download the finished installer (easiest)
 
 **Direct link:**
 
-<https://github.com/GARDNADZENT/oumse/releases/download/v0.3.2/BestMDMToolSetup-0.3.2.exe>
+<https://github.com/GARDNADZENT/oumse/releases/download/v0.3.3/BestMDMToolSetup-0.3.3.exe>
 
 **Release page** (also has `SHA256SUMS.txt`):
 
-<https://github.com/GARDNADZENT/oumse/releases/tag/v0.3.2>
+<https://github.com/GARDNADZENT/oumse/releases/tag/v0.3.3>
 
 | Item | Value |
 | --- | --- |
-| File | `BestMDMToolSetup-0.3.2.exe` |
-| Size | ~48.7 MiB |
+| File | `BestMDMToolSetup-0.3.3.exe` |
+| Size | ~64 MiB |
 | Built by | GitHub Actions, Windows `windows-latest` |
 | Signing | **Not signed** — SmartScreen will warn (see below) |
 
 Install steps:
 
-1. Run `BestMDMToolSetup-0.3.2.exe`.
+1. Run `BestMDMToolSetup-0.3.3.exe`.
 2. Because the file is not code-signed, Windows shows
    *"Windows protected your PC"*. Click **More info → Run anyway**.
 3. Finish setup, then launch **BestMDMTool** from the Start Menu.
@@ -59,7 +71,7 @@ Python is **not required** on the target PC: the installer ships a standalone
 ### Verify the download (optional but recommended)
 
 ```powershell
-Get-FileHash .\BestMDMToolSetup-0.3.2.exe -Algorithm SHA256
+Get-FileHash .\BestMDMToolSetup-0.3.3.exe -Algorithm SHA256
 ```
 
 Compare the output with the contents of `SHA256SUMS.txt` on the release page.
@@ -108,7 +120,7 @@ The script:
 2. installs Inno Setup 6 automatically if `ISCC.exe` is missing (winget, then a
    direct download);
 3. compiles the installer to
-   `installer-bestmdmtool\artifacts\BestMDMToolSetup-0.3.2.exe`;
+   `installer-bestmdmtool\artifacts\BestMDMToolSetup-0.3.3.exe`;
 4. writes `installer-bestmdmtool\artifacts\SHA256SUMS.txt`.
 
 Alternative entry points:
@@ -135,6 +147,7 @@ Requires Python 3.10+ with Tkinter on the same machine.
 
 | Symptom | Cause | Fix |
 | --- | --- | --- |
+| Window closes by itself | An unexpected error | Open the log folder (Settings) and send the newest `crash-*.log` |
 | "Connection failed" with no detail | The backend could not start | **Settings -> Run backend self-test**; the log shows the runner path and the failing piece |
 | `OUMSE_FAIL:import:No module named '_socket'` then "0 partitions" | **Fixed in 0.3.1.** The vendored `runtime\bin` Python has no `*.pyd` C extensions, so the old build used it as the runner | Install 0.3.1 or newer: it ships a frozen `BestMDMToolRunner.exe` with a complete interpreter |
 | `The module 'installer-bestmdmtool' could not be loaded` | PowerShell needs `.\` | Run `.\installer-bestmdmtool\build_installer.bat` or use `cmd.exe` |

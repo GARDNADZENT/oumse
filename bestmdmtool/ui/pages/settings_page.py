@@ -9,6 +9,7 @@ from typing import Any
 from servicecore.adb import find_adb, find_fastboot
 from servicecore.config import python_executable, service_runner_path
 
+from ... import applog
 from .. import theme
 from ..widgets import ActionButton, Card, PathRow
 from .base import BasePage
@@ -93,6 +94,7 @@ class SettingsPage(BasePage):
         ActionButton(behaviour.body, "Report tool paths", self.controller.report_tools, variant="ghost").pack(
             fill="x", pady=(0, 6)
         )
+        ActionButton(behaviour.body, "Open log folder", self._open_logs, variant="ghost").pack(fill="x", pady=(0, 6))
         ActionButton(behaviour.body, "Reset to defaults", self._reset, variant="ghost").pack(fill="x")
 
         paths = Card(self.content, "Paths")
@@ -140,6 +142,7 @@ class SettingsPage(BasePage):
             "ADB         : %s" % (adb or "not found"),
             "Fastboot    : %s" % (fastboot or "not found"),
             "Settings    : %s" % self.controller.settings.path(),
+            "Activity log: %s" % applog.log_path(),
         ]
         self.paths_text.configure(state="normal")
         self.paths_text.delete("1.0", "end")
@@ -159,6 +162,13 @@ class SettingsPage(BasePage):
                 self.selftest_label.configure(text="Failed: %s" % reason[:160], fg=theme.DANGER)
 
         self.controller.run_backend_selftest(_done)
+
+    def _open_logs(self) -> None:
+        try:
+            applog.open_log_folder()
+            self.app.set_status("Opened the log folder.", "ok")
+        except Exception as exc:
+            self.app.set_status("Could not open the log folder: %s" % exc, "warn")
 
     def _browse_loader(self) -> str:
         path = self.app.ask_open("Select DA loader", [("Loader", "*.bin"), ("All files", "*.*")])
