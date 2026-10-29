@@ -11,6 +11,14 @@ Settings, and About.
 
 ---
 
+## What's new in 0.3.1
+
+0.3.0 could not talk to a phone even though the UI said it had connected. The
+device backend now ships as a frozen `BestMDMToolRunner.exe` with a complete
+Python (the vendored `runtime\bin` interpreter has no C extensions, so it could
+never import `_socket`), and a failed connection now reports the real reason
+instead of "0 partitions found".
+
 ## 1. Download the finished installer (easiest)
 
 **Direct link:**

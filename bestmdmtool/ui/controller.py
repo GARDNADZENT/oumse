@@ -97,13 +97,19 @@ class Controller:
                 cwd=cwd,
             )
             self.log("Runner: %s" % argv[0], "DEBUG")
-            ok = session.start(
-                mode=mode,
-                transport=transport,
-                loader=loader or None,
-                auth=auth or None,
-                debug=debug,
-            )
+            try:
+                ok = session.start(
+                    mode=mode,
+                    transport=transport,
+                    loader=loader or None,
+                    auth=auth or None,
+                    debug=debug,
+                )
+            except (FileNotFoundError, RuntimeError) as exc:
+                self._start_error = str(exc)
+                self.log("Device session failed: %s" % exc, "ERROR")
+                self.log("The installed device runner is missing or unusable; reinstall BestMDMTool.", "WARN")
+                return False
             if not ok:
                 reason = session.last_error or "no response from the runner"
                 self.log("Device session failed: %s" % reason, "ERROR")
