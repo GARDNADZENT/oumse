@@ -108,15 +108,23 @@ def _module(name, **attrs):
     return module
 
 
-def install_fake_tkinter() -> None:
-    """Install a stub ``tkinter`` package if the real one is missing."""
+def install_fake_tkinter(force: bool = True) -> None:
+    """Install the stub ``tkinter`` package.
 
-    try:
-        import tkinter  # noqa: F401
+    ``force`` (the default) replaces a real tkinter too, because CI runners have
+    no display: constructing a real ``Tk`` root there raises ``TclError``.
+    """
 
-        return
-    except Exception:
-        pass
+    if not force:
+        try:
+            import tkinter  # noqa: F401
+
+            return
+        except Exception:
+            pass
+
+    for name in [key for key in sys.modules if key == "tkinter" or key.startswith("tkinter.")]:
+        del sys.modules[name]
 
     widgets = {
         name: FakeWidget
