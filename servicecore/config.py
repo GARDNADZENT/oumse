@@ -4,6 +4,7 @@ import os
 import sys
 from pathlib import Path
 
+
 def _detect_root() -> Path:
     """Locate the application root for source checkouts and frozen builds."""
     override = os.environ.get("BESTMDMTOOL_ROOT") or os.environ.get("OUMSE_ROOT")
