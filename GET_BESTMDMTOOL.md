@@ -1,7 +1,11 @@
 # Get BestMDMTool
 
 BestMDMTool is a **separate, no-login** app in this repository. It opens
-straight to the main window — no account, no server, no heartbeat.
+straight to a full device workspace — no account, no server, no remote service.
+
+The workspace has eight pages: Dashboard, Partition Manager, Firmware Flasher,
+Advanced Tools (raw flash + memory peek/poke), Bootloader, ADB & Fastboot,
+Settings, and About.
 
 > Use only on devices you own or are explicitly authorized to service.
 
@@ -20,7 +24,7 @@ straight to the main window — no account, no server, no heartbeat.
 | Item | Value |
 | --- | --- |
 | File | `BestMDMToolSetup-0.3.0.exe` |
-| Size | ~48.6 MiB |
+| Size | ~48.7 MiB |
 | Built by | GitHub Actions, Windows `windows-latest` |
 | Signing | **Not signed** — SmartScreen will warn (see below) |
 

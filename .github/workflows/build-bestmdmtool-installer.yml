@@ -40,6 +40,24 @@ jobs:
         shell: pwsh
         run: ./installer-bestmdmtool/build_installer.ps1
 
+      - name: Self-test the frozen application
+        shell: pwsh
+        run: |
+          $exe = "installer-bestmdmtool/frozen/BestMDMTool/BestMDMTool.exe"
+          if (-not (Test-Path $exe)) { throw "Standalone BestMDMTool.exe was not built" }
+          $report = Join-Path $env:TEMP "bestmdmtool-selftest.json"
+          & $exe --selftest $report
+          if ($LASTEXITCODE -ne 0) { throw "Frozen app self-test failed (exit $LASTEXITCODE)" }
+          if (-not (Test-Path $report)) { throw "Self-test report was not written" }
+          $json = Get-Content $report -Raw | ConvertFrom-Json
+          Write-Host ($json | ConvertTo-Json -Depth 4)
+          if (-not $json.ok) { throw "Self-test reported failure" }
+          if (-not $json.runner_exists) { throw "service_runner.py missing from the bundle" }
+          if (-not $json.python_exists) { throw "Bundled runtime Python missing" }
+          foreach ($page in @("dashboard", "partitions", "flasher", "advanced", "bootloader", "adb", "settings", "about")) {
+            if ($json.pages -notcontains $page) { throw "UI page missing from bundle: $page" }
+          }
+
       - name: Verify installer
         shell: pwsh
         run: |
