@@ -6,6 +6,13 @@ mtkclient BROM/DA layer over a persistent session.
 
 > Use only on devices you own or are explicitly authorized to service.
 
+## Diagnosing a failed connection
+
+**Settings -> Run backend self-test** executes `BestMDMToolRunner.exe --selftest`
+and reports the Python version, mtkclient import, libusb backend, DA loaders and
+USB devices it can see. The same summary goes to the activity log, so a support
+report can name the failing piece instead of guessing.
+
 ## Interface
 
 Sidebar navigation with a shared activity log dock and a live status bar.

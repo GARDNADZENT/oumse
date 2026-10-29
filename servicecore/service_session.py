@@ -166,46 +166,57 @@ class ServiceSession:
 
     def stop(self, *, reboot: bool = False, timeout: float = 5.0) -> None:
         proc = self._proc
-        if proc is None or proc.poll() is not None:
-            self._proc = None
+        if proc is None:
             return
-        try:
-            if reboot:
-                self.send({"op": "reboot"}, wait=60.0)
-            else:
-                self.send({"op": "quit"}, wait=2.0)
-        except Exception:
-            pass
-        try:
-            proc.wait(timeout=timeout)
-        except Exception:
+        if proc.poll() is None:
             try:
-                proc.kill()
+                if reboot:
+                    self.send({"op": "reboot"}, wait=60.0)
+                else:
+                    self.send({"op": "quit"}, wait=2.0)
             except Exception:
                 pass
+            try:
+                proc.wait(timeout=timeout)
+            except Exception:
+                try:
+                    proc.kill()
+                except Exception:
+                    pass
+        self._close_streams(proc)
+        if self._proc is proc:
+            self._proc = None
+
+    @staticmethod
+    def _close_streams(proc: subprocess.Popen) -> None:
+        """Release the pipes so a failed start never leaks file handles."""
         for stream in (proc.stdin, proc.stdout):
             try:
                 if stream is not None:
                     stream.close()
             except Exception:
                 pass
-        self._proc = None
 
     # -- io ----------------------------------------------------------------
     def _read_loop(self) -> None:
         proc = self._proc
         if proc is None or proc.stdout is None:
             return
-        for raw in proc.stdout:
-            line = raw.rstrip("\n")
-            if not line:
-                continue
-            self._raw.append(line)
-            del self._raw[:-500]
-            event = self._parse(line)
-            self.events.put(event)
-            self._dispatch(event)
-        self._finished.set()
+        try:
+            for raw in proc.stdout:
+                line = raw.rstrip("\n")
+                if not line:
+                    continue
+                self._raw.append(line)
+                del self._raw[:-500]
+                event = self._parse(line)
+                self.events.put(event)
+                self._dispatch(event)
+        except (ValueError, OSError):
+            # The pipe was closed while shutting down; nothing left to read.
+            pass
+        finally:
+            self._finished.set()
         with self._cond:
             self._cond.notify_all()
 

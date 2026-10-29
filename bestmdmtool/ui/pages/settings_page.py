@@ -76,7 +76,21 @@ class SettingsPage(BasePage):
 
         ActionButton(behaviour.body, "Save settings", self._save, variant="accent").pack(fill="x", pady=(0, 6))
         ActionButton(behaviour.body, "Save and reconnect", self._save_and_reconnect).pack(fill="x", pady=(0, 6))
-        ActionButton(behaviour.body, "Run diagnostics", self.controller.report_tools, variant="ghost").pack(
+        ActionButton(
+            behaviour.body, "Run backend self-test", self._run_selftest, variant="accent"
+        ).pack(fill="x", pady=(0, 6))
+        self.selftest_label = tk.Label(
+            behaviour.body,
+            text="Checks the runner, mtkclient, libusb and the DA loaders.",
+            bg=theme.PANEL,
+            fg=theme.TEXT_DIM,
+            font=theme.FONT_UI_SMALL,
+            anchor="w",
+            justify="left",
+            wraplength=260,
+        )
+        self.selftest_label.pack(fill="x", pady=(0, 10))
+        ActionButton(behaviour.body, "Report tool paths", self.controller.report_tools, variant="ghost").pack(
             fill="x", pady=(0, 6)
         )
         ActionButton(behaviour.body, "Reset to defaults", self._reset, variant="ghost").pack(fill="x")
@@ -116,9 +130,13 @@ class SettingsPage(BasePage):
     def _refresh_paths(self) -> None:
         adb = find_adb()
         fastboot = find_fastboot()
+        from servicecore.config import frozen_runner_path
+
+        frozen = frozen_runner_path()
         lines = [
             "Python      : %s" % python_executable(),
-            "Runner      : %s" % service_runner_path(),
+            "Runner      : %s" % (frozen if frozen is not None else service_runner_path()),
+            "Runner mode : %s" % ("frozen executable" if frozen is not None else "source script"),
             "ADB         : %s" % (adb or "not found"),
             "Fastboot    : %s" % (fastboot or "not found"),
             "Settings    : %s" % self.controller.settings.path(),
@@ -127,6 +145,20 @@ class SettingsPage(BasePage):
         self.paths_text.delete("1.0", "end")
         self.paths_text.insert("1.0", "\n".join(lines))
         self.paths_text.configure(state="disabled")
+
+    def _run_selftest(self) -> None:
+        self.selftest_label.configure(text="Running backend self-test...", fg=theme.TEXT_MUTED)
+
+        def _done(report: dict[str, Any]) -> None:
+            if report.get("ok"):
+                self.selftest_label.configure(text="Backend OK - ready to connect a device.", fg=theme.SUCCESS)
+            else:
+                from servicecore import selfcheck
+
+                reason = selfcheck.describe_failure(report)
+                self.selftest_label.configure(text="Failed: %s" % reason[:160], fg=theme.DANGER)
+
+        self.controller.run_backend_selftest(_done)
 
     def _browse_loader(self) -> str:
         path = self.app.ask_open("Select DA loader", [("Loader", "*.bin"), ("All files", "*.*")])

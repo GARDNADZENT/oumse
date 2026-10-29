@@ -12,8 +12,8 @@ does not include MDM/FRP bypass, credential, or licensing-bypass logic.
 | File | Produced by |
 |---|---|
 | `frozen/BestMDMTool/BestMDMTool.exe` | `build_exe.ps1` (PyInstaller standalone GUI) |
-| `artifacts/BestMDMToolSetup-0.3.1.exe` | `build_installer.bat` on Windows / GitHub Actions |
-| `artifacts/BestMDMTool-Portable-0.3.1.zip` | `build_portable.py` on any OS |
+| `artifacts/BestMDMToolSetup-0.3.2.exe` | `build_installer.bat` on Windows / GitHub Actions |
+| `artifacts/BestMDMTool-Portable-0.3.2.zip` | `build_portable.py` on any OS |
 
 The real Windows installer is built with **Inno Setup 6**. This Linux sandbox does
 not include `ISCC.exe`, so the `.exe` is produced by the Windows CI workflow or
@@ -42,7 +42,7 @@ The script:
 - if Inno Setup is missing, installs it automatically (winget, then a direct
   download from jrsoftware.org) — no manual setup needed;
 - compiles `installer-bestmdmtool\BestMDMTool.iss`;
-- writes `installer-bestmdmtool\artifacts\BestMDMToolSetup-0.3.1.exe`;
+- writes `installer-bestmdmtool\artifacts\BestMDMToolSetup-0.3.2.exe`;
 - writes `installer-bestmdmtool\artifacts\SHA256SUMS.txt`.
 
 Equivalent direct invocation:
@@ -70,7 +70,7 @@ On any OS with Python 3.10+:
 python installer-bestmdmtool/build_portable.py
 ```
 
-This writes `installer-bestmdmtool/artifacts/BestMDMTool-Portable-0.3.1.zip` and
+This writes `installer-bestmdmtool/artifacts/BestMDMTool-Portable-0.3.2.zip` and
 a matching `.sha256` file. It is a convenience artifact, not a substitute for a
 signed Windows installer.
 

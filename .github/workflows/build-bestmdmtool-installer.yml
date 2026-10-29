@@ -91,6 +91,39 @@ jobs:
           }
           if (-not $json.da_v5) { throw "MTK_DA_V5.bin not reachable from the runner" }
 
+      - name: Prove the installed layout finds its own runtime
+        shell: pwsh
+        run: |
+          # The selftest above runs from the build tree with BESTMDMTOOL_ROOT set.
+          # This reproduces the real install layout: {app}\runtime\runner\* +
+          # {app}\runtime\lib, with no environment help at all.
+          $app = Join-Path $env:TEMP "bestmdmtool-install"
+          Remove-Item -Recurse -Force $app -ErrorAction SilentlyContinue
+          $runner = Join-Path $app "runtime\runner"
+          New-Item -ItemType Directory -Force -Path $runner | Out-Null
+          Copy-Item -Recurse -Force "installer-bestmdmtool/frozen/BestMDMToolRunner/*" $runner
+          New-Item -ItemType Junction -Path (Join-Path $app "runtime\lib") -Target (Resolve-Path "runtime/lib") | Out-Null
+          Remove-Item Env:BESTMDMTOOL_ROOT -ErrorAction SilentlyContinue
+          Remove-Item Env:OUMSE_ROOT -ErrorAction SilentlyContinue
+          Remove-Item Env:SVC_ROOT -ErrorAction SilentlyContinue
+
+          $exe = Join-Path $runner "BestMDMToolRunner.exe"
+          $report = Join-Path $env:TEMP "bestmdmtool-installed-selftest.json"
+          Remove-Item -Force $report -ErrorAction SilentlyContinue
+          $proc = Start-Process -FilePath $exe -ArgumentList @("--selftest", $report) -WorkingDirectory $runner -Wait -PassThru -NoNewWindow
+          if (-not (Test-Path $report)) { throw "Installed layout produced no self-test report" }
+          $json = Get-Content $report -Raw | ConvertFrom-Json
+          Write-Host ($json | ConvertTo-Json -Depth 4)
+          $detail = (Get-Content $report -Raw) -replace "`r?`n", " "
+          if ($proc.ExitCode -ne 0 -or -not $json.ok) {
+            Write-Output "::error::Installed layout self-test failed: $detail"
+            throw "Installed layout self-test failed (exit $($proc.ExitCode))"
+          }
+          if (-not $json.runtime_lib -or -not ($json.runtime_lib -replace "/", "\").StartsWith($app)) {
+            throw "Runner resolved runtime/lib outside the install: $($json.runtime_lib)"
+          }
+          if (-not $json.libusb_backend) { throw "Installed layout lost the libusb backend" }
+
       - name: Verify installer
         shell: pwsh
         run: |

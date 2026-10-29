@@ -116,6 +116,24 @@ def runner_command() -> tuple[list[str], Path]:
     return [str(interpreter), "-u", str(script)], script.parent
 
 
+def selfcheck_command() -> tuple[list[str], Path] | None:
+    """Return the command that runs the backend self-test.
+
+    The frozen runner proves the whole device stack without opening a session;
+    a source checkout falls back to ``installer-bestmdmtool/runner_entry.py``.
+    """
+    frozen = frozen_runner_path()
+    if frozen is not None:
+        return [str(frozen), "--selftest"], frozen.parent
+
+    entry = ROOT / "installer-bestmdmtool" / "runner_entry.py"
+    if entry.is_file():
+        interpreter = python_executable()
+        if interpreter.is_file():
+            return [str(interpreter), "-u", str(entry), "--selftest"], ROOT
+    return None
+
+
 def session_runner_path() -> Path:
     return _override("OUMSE_SESSION_RUNNER", SESSION_RUNNER)
 

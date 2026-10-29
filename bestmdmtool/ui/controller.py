@@ -264,10 +264,39 @@ class Controller:
 
         self.run_async("Reading partition table", _work, _done)
 
+    def run_backend_selftest(self, done: Callable[[dict[str, Any]], None] | None = None) -> None:
+        """Ask the device runner to check itself and log the outcome."""
+        from servicecore import selfcheck
+
+        def _work() -> dict[str, Any]:
+            return selfcheck.run()
+
+        def _done(result: Any) -> None:
+            report = result if isinstance(result, dict) else {}
+            healthy = bool(report.get("ok"))
+            self.log(
+                "Backend self-test %s in %.2fs."
+                % ("passed" if healthy else "FAILED", float(report.get("duration") or 0.0)),
+                "OK" if healthy else "ERROR",
+            )
+            for line in report.get("lines") or []:
+                self.log(line, "INFO")
+            if not healthy:
+                self.log("Cause: %s" % selfcheck.describe_failure(report), "ERROR")
+                self.log(selfcheck.environment_hint(), "WARN")
+            if done is not None:
+                done(report)
+
+        self.run_async("Backend self-test", _work, _done)
+
     def report_tools(self) -> None:
         adb = find_adb()
         fastboot = find_fastboot()
         self.log("ADB: %s" % (adb if adb else "not found"), "INFO")
         self.log("Fastboot: %s" % (fastboot if fastboot else "not found"), "INFO")
-        self.log("Runner: %s" % Path(service_runner_path()).name, "INFO")
-        self.log("Python: %s" % python_executable(), "INFO")
+        frozen = frozen_runner_path()
+        if frozen is not None:
+            self.log("Runner: %s (frozen)" % frozen, "INFO")
+        else:
+            self.log("Runner: %s (source)" % Path(service_runner_path()).name, "INFO")
+            self.log("Python: %s" % python_executable(), "INFO")
