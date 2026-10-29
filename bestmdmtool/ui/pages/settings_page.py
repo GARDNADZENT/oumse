@@ -95,6 +95,9 @@ class SettingsPage(BasePage):
             fill="x", pady=(0, 6)
         )
         ActionButton(behaviour.body, "Open log folder", self._open_logs, variant="ghost").pack(fill="x", pady=(0, 6))
+        ActionButton(behaviour.body, "Export support bundle", self._export_bundle, variant="ghost").pack(
+            fill="x", pady=(0, 6)
+        )
         ActionButton(behaviour.body, "Reset to defaults", self._reset, variant="ghost").pack(fill="x")
 
         paths = Card(self.content, "Paths")
@@ -162,6 +165,14 @@ class SettingsPage(BasePage):
                 self.selftest_label.configure(text="Failed: %s" % reason[:160], fg=theme.DANGER)
 
         self.controller.run_backend_selftest(_done)
+
+    def _export_bundle(self) -> None:
+        self.app.set_status("Collecting logs and a backend self-test...", "busy")
+
+        def _done(path) -> None:
+            self.app.set_status("Support bundle: %s" % path, "ok")
+
+        self.controller.export_support_bundle(_done)
 
     def _open_logs(self) -> None:
         try:

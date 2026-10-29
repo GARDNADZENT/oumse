@@ -39,26 +39,38 @@ pages, switches pages, feeds it a simulated device and drives a partition read i
 CI, plus static checks that every page only touches real controller and theme
 members.
 
+## What's new in 0.3.4
+
+**Export support bundle.** Settings -> **Export support bundle** writes one zip
+to your Desktop with `activity.log`, the newest crash report, a backend
+self-test result, and the device/partition snapshot. Attach that single file to a
+bug report instead of describing symptoms.
+
+**Every page action is exercised in CI.** Besides building the window and
+switching pages, the tests now drive partition read/backup/erase/GPT export,
+flash-to-partition, raw range reads, peek and seccfg against a simulated device,
+so a broken callback fails the build instead of the user.
+
 ## 1. Download the finished installer (easiest)
 
 **Direct link:**
 
-<https://github.com/GARDNADZENT/oumse/releases/download/v0.3.3/BestMDMToolSetup-0.3.3.exe>
+<https://github.com/GARDNADZENT/oumse/releases/download/v0.3.4/BestMDMToolSetup-0.3.4.exe>
 
 **Release page** (also has `SHA256SUMS.txt`):
 
-<https://github.com/GARDNADZENT/oumse/releases/tag/v0.3.3>
+<https://github.com/GARDNADZENT/oumse/releases/tag/v0.3.4>
 
 | Item | Value |
 | --- | --- |
-| File | `BestMDMToolSetup-0.3.3.exe` |
+| File | `BestMDMToolSetup-0.3.4.exe` |
 | Size | ~64 MiB |
 | Built by | GitHub Actions, Windows `windows-latest` |
 | Signing | **Not signed** — SmartScreen will warn (see below) |
 
 Install steps:
 
-1. Run `BestMDMToolSetup-0.3.3.exe`.
+1. Run `BestMDMToolSetup-0.3.4.exe`.
 2. Because the file is not code-signed, Windows shows
    *"Windows protected your PC"*. Click **More info → Run anyway**.
 3. Finish setup, then launch **BestMDMTool** from the Start Menu.
@@ -71,7 +83,7 @@ Python is **not required** on the target PC: the installer ships a standalone
 ### Verify the download (optional but recommended)
 
 ```powershell
-Get-FileHash .\BestMDMToolSetup-0.3.3.exe -Algorithm SHA256
+Get-FileHash .\BestMDMToolSetup-0.3.4.exe -Algorithm SHA256
 ```
 
 Compare the output with the contents of `SHA256SUMS.txt` on the release page.
@@ -120,7 +132,7 @@ The script:
 2. installs Inno Setup 6 automatically if `ISCC.exe` is missing (winget, then a
    direct download);
 3. compiles the installer to
-   `installer-bestmdmtool\artifacts\BestMDMToolSetup-0.3.3.exe`;
+   `installer-bestmdmtool\artifacts\BestMDMToolSetup-0.3.4.exe`;
 4. writes `installer-bestmdmtool\artifacts\SHA256SUMS.txt`.
 
 Alternative entry points:

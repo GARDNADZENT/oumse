@@ -289,6 +289,47 @@ class Controller:
 
         self.run_async("Backend self-test", _work, _done)
 
+    def export_support_bundle(self, done: Callable[[Any], None] | None = None) -> None:
+        """Collect logs, a self-test result and device state into one zip."""
+        from servicecore import selfcheck
+
+        from ..support import build as build_bundle
+
+        device = dict(self.device)
+        partitions = list(self.partitions)
+        settings = {
+            "mode": self.settings.mode,
+            "transport": self.settings.transport,
+            "debug_log": self.settings.debug_log,
+            "confirm_destructive": self.settings.confirm_destructive,
+            "loader": self.settings.loader,
+            "auth": self.settings.auth,
+        }
+
+        def _work() -> Any:
+            report: dict[str, Any] = {}
+            try:
+                report = selfcheck.run()
+            except Exception as exc:  # a broken self-test must not lose the log
+                report = {"ok": False, "error": str(exc)}
+            return build_bundle(
+                device=device,
+                partitions=partitions,
+                settings=settings,
+                selftest=report,
+            )
+
+        def _done(path: Any) -> None:
+            if not path:
+                self.log("Could not write the support bundle.", "ERROR")
+                return
+            self.log("Support bundle written to %s" % path, "OK")
+            self.log("Attach that file to a bug report; it contains no credentials.", "INFO")
+            if done is not None:
+                done(path)
+
+        self.run_async("Writing support bundle", _work, _done)
+
     def report_tools(self) -> None:
         adb = find_adb()
         fastboot = find_fastboot()

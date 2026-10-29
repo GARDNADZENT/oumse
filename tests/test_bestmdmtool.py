@@ -51,7 +51,7 @@ class BestMDMToolTests(unittest.TestCase):
     def test_bestmdmtool_branding(self) -> None:
         branding = (ROOT / "bestmdmtool" / "branding.py").read_text(encoding="utf-8")
         self.assertIn('PRODUCT_NAME = "BestMDMTool"', branding)
-        self.assertIn('PRODUCT_VERSION = "0.3.3"', branding)
+        self.assertIn('PRODUCT_VERSION = "0.3.4"', branding)
         self.assertIn("AUTHORIZED_USE", branding)
 
     def test_bestmdmtool_gui_opens_directly(self) -> None:

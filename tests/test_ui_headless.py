@@ -146,6 +146,149 @@ class WindowSmokeTests(unittest.TestCase):
         self.app.controller.session = None
 
 
+class PageActionTests(unittest.TestCase):
+    """Drive the real button callbacks with a simulated device behind them."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        install_fake_tkinter(force=True)
+        from bestmdmtool import branding
+        from bestmdmtool.ui.main_window import MainWindow
+
+        cls.app = MainWindow(
+            product_name=branding.PRODUCT_NAME,
+            product_title=branding.PRODUCT_TITLE,
+            product_version=branding.PRODUCT_VERSION,
+            product_subtitle=branding.PRODUCT_SUBTITLE,
+            authorized_use=branding.AUTHORIZED_USE,
+        )
+
+    def _install_session(self) -> MagicMock:
+        session = MagicMock()
+        session.is_running = True
+        for name in ("read_partition", "write_partition", "erase", "read_flash", "write_flash", "erase_flash",
+                     "peek", "poke", "seccfg", "reboot", "export_gpt", "refresh_gpt", "dump", "read"):
+            getattr(session, name).return_value = MagicMock(ok=True, op=name, detail="", data=b"\x00" * 16)
+        self.app.controller.session = session
+        self.app.controller.partitions = list(PARTITIONS)
+        self.app.confirm = lambda *args, **kwargs: True
+        self.app.ask_open = lambda *args, **kwargs: "/tmp/smoke/boot.img"
+        self.app.ask_save = lambda *args, **kwargs: "/tmp/smoke/out.bin"
+        self.addCleanup(setattr, self.app.controller, "session", None)
+        return session
+
+    def _errors(self) -> list[str]:
+        return [text for level, text in self._logs if level == "ERROR" and "failed" in text.lower()]
+
+    def setUp(self) -> None:
+        self._logs: list[tuple[str, str]] = []
+        controller = self.app.controller
+        original = controller._log
+
+        def _record(message: str, level: str = "INFO") -> None:
+            self._logs.append((level, message))
+            original(message, level)
+
+        controller._log = _record
+        self.addCleanup(setattr, controller, "_log", original)
+        self.app._pages["partitions"].tree.selection = lambda: (("boot",),)
+        self.app._pages["partitions"].tree.item = lambda _item, *_args: ("boot",)
+
+    def test_partition_actions_reach_the_session(self) -> None:
+        from bestmdmtool.settings import Settings
+
+        session = self._install_session()
+        page = self.app._pages["partitions"]
+        page._render()
+
+        with patch.object(Settings, "save", lambda _self: None):
+            page._read_selected()
+            page._backup_all()
+            page._erase_selected()
+            page._export_gpt()
+
+        self.assertTrue(
+            _wait_for(lambda: session.read_partition.called and session.erase.called),
+            "partition actions never reached the session",
+        )
+        self.assertFalse(self._errors(), self._errors())
+
+    def test_advanced_actions_reach_the_session(self) -> None:
+        session = self._install_session()
+        page = self.app._pages["advanced"]
+        page.read_offset.var.set("0x1000")
+        page.read_length.var.set("4096")
+        page.read_out.set("/tmp/smoke/range.bin")
+        page.peek_addr.var.set("0x80000000")
+        page.peek_len.var.set("16")
+
+        page._read_range()
+        page._peek()
+
+        self.assertTrue(_wait_for(lambda: session.read_flash.called), "read range never reached the session")
+        self.assertFalse(self._errors(), self._errors())
+
+    def test_flasher_actions_reach_the_session(self) -> None:
+        session = self._install_session()
+        page = self.app._pages["flasher"]
+        page.image_row.set("/tmp/smoke/boot.img")
+        page.partition_var.set("boot")
+
+        page._flash_single()
+
+        self.assertTrue(_wait_for(lambda: session.write_partition.called), "flash never reached the session")
+        self.assertFalse(self._errors(), self._errors())
+
+    def test_bootloader_and_adb_actions_are_graceful(self) -> None:
+        session = self._install_session()
+        boot = self.app._pages["bootloader"]
+
+        boot._check_state()
+        with patch.object(type(self.app.controller.settings), "save", lambda _self: None):
+            boot._seccfg("unlock")
+
+        self.assertTrue(_wait_for(lambda: session.seccfg.called), "seccfg never reached the session")
+        self.assertFalse([text for text in self._errors() if "seccfg" not in text.lower()], self._errors())
+
+    def test_support_bundle_button_writes_and_reports(self) -> None:
+        from bestmdmtool import support
+
+        page = self.app._pages["settings"]
+        target = Path("/tmp/smoke/support.zip")
+        original_build = support.build
+        original_run = self.app.controller.run_backend_selftest
+        calls: list[Path] = []
+
+        def _fake_build(**kwargs):
+            calls.append(target)
+            return target
+
+        from servicecore import selfcheck
+
+        original_selfcheck = selfcheck.run
+        selfcheck.run = lambda *args, **kwargs: {"ok": True}
+        support.build = _fake_build
+        self.addCleanup(setattr, support, "build", original_build)
+        self.addCleanup(setattr, selfcheck, "run", original_selfcheck)
+        self.addCleanup(setattr, self.app.controller, "run_backend_selftest", original_run)
+
+        page._export_bundle()
+        self.assertTrue(_wait_for(lambda: bool(calls)), "the support bundle was never written")
+        self.assertTrue(any("Support bundle" in text and level == "OK" for level, text in self._logs), self._logs)
+
+    def test_settings_actions_are_graceful(self) -> None:
+        from servicecore import selfcheck
+
+        page = self.app._pages["settings"]
+        original = selfcheck.run
+        selfcheck.run = lambda *args, **kwargs: {"ok": True, "lines": ["mtkclient: yes"], "duration": 0.1}
+        self.addCleanup(setattr, selfcheck, "run", original)
+
+        page._refresh_paths()
+        page._run_selftest()
+        self.assertFalse(self._errors(), self._errors())
+
+
 class UiContractTests(unittest.TestCase):
     """Static checks that the pages only touch members that actually exist."""
 

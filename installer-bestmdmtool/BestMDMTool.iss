@@ -2,7 +2,7 @@
 ; Inno Setup 6 script. Build with installer-bestmdmtool\build_installer.bat on Windows.
 
 #define MyAppName "BestMDMTool"
-#define MyAppVersion "0.3.3"
+#define MyAppVersion "0.3.4"
 #define MyAppPublisher "BestMDMTool"
 #define MyAppURL "https://example.com/"
 #define MyAppId "{{D3968000-4976-4AF9-91CA-0D5EF2E71E60}"
@@ -51,7 +51,7 @@ ArchitecturesAllowed=x86 x64
 ArchitecturesInstallIn64BitMode=x64
 CloseApplications=yes
 RestartApplications=no
-VersionInfoVersion=0.3.3.0
+VersionInfoVersion=0.3.4.0
 VersionInfoCompany={#MyAppPublisher}
 VersionInfoDescription=BestMDMTool installer
 VersionInfoTextVersion={#MyAppVersion}

@@ -12,7 +12,9 @@ Every activity-log line is mirrored to
 `%LOCALAPPDATA%\BestMDMTool\logs\activity.log` (rotated at 1 MB, three
 generations). If the window closes unexpectedly, a `crash-<timestamp>.log` lands
 in the same folder and a dialog names it. **Settings -> Open log folder** opens
-it; attach `activity.log` plus the newest crash report to a bug report.
+it. **Settings -> Export support bundle** zips the activity log, the newest
+crash report, a backend self-test result and the device snapshot into a single
+file on the Desktop, ready to attach to a bug report.
 
 ## Diagnosing a failed connection
 
