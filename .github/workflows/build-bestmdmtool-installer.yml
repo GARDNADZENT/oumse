@@ -94,35 +94,56 @@ jobs:
       - name: Prove the installed layout finds its own runtime
         shell: pwsh
         run: |
-          # The selftest above runs from the build tree with BESTMDMTOOL_ROOT set.
-          # This reproduces the real install layout: {app}\runtime\runner\* +
-          # {app}\runtime\lib, with no environment help at all.
-          $app = Join-Path $env:TEMP "bestmdmtool-install"
-          Remove-Item -Recurse -Force $app -ErrorAction SilentlyContinue
-          $runner = Join-Path $app "runtime\runner"
-          New-Item -ItemType Directory -Force -Path $runner | Out-Null
-          Copy-Item -Recurse -Force "installer-bestmdmtool/frozen/BestMDMToolRunner/*" $runner
-          New-Item -ItemType Junction -Path (Join-Path $app "runtime\lib") -Target (Resolve-Path "runtime/lib") | Out-Null
-          Remove-Item Env:BESTMDMTOOL_ROOT -ErrorAction SilentlyContinue
-          Remove-Item Env:OUMSE_ROOT -ErrorAction SilentlyContinue
-          Remove-Item Env:SVC_ROOT -ErrorAction SilentlyContinue
+          $ErrorActionPreference = "Stop"
+          try {
+            # The step above runs from the build tree with BESTMDMTOOL_ROOT set.
+            # This reproduces the real install layout - {app}\runtime\runner and
+            # {app}\runtime\lib - with no environment help at all.
+            $app = Join-Path $env:TEMP "bestmdmtool-install"
+            if (Test-Path $app) { Remove-Item -Recurse -Force $app }
+            $runner = Join-Path $app "runtime\runner"
+            $loader = Join-Path $app "runtime\lib\mtkclient\Loader"
+            New-Item -ItemType Directory -Force -Path $runner, $loader | Out-Null
+            Copy-Item -Path "installer-bestmdmtool/frozen/BestMDMToolRunner/*" -Destination $runner -Recurse -Force
+            Copy-Item -Path "runtime/lib/mtkclient/Loader/MTK_DA_V*.bin" -Destination $loader -Force
 
-          $exe = Join-Path $runner "BestMDMToolRunner.exe"
-          $report = Join-Path $env:TEMP "bestmdmtool-installed-selftest.json"
-          Remove-Item -Force $report -ErrorAction SilentlyContinue
-          $proc = Start-Process -FilePath $exe -ArgumentList @("--selftest", $report) -WorkingDirectory $runner -Wait -PassThru -NoNewWindow
-          if (-not (Test-Path $report)) { throw "Installed layout produced no self-test report" }
-          $json = Get-Content $report -Raw | ConvertFrom-Json
-          Write-Host ($json | ConvertTo-Json -Depth 4)
-          $detail = (Get-Content $report -Raw) -replace "`r?`n", " "
-          if ($proc.ExitCode -ne 0 -or -not $json.ok) {
-            Write-Output "::error::Installed layout self-test failed: $detail"
-            throw "Installed layout self-test failed (exit $($proc.ExitCode))"
+            Remove-Item Env:BESTMDMTOOL_ROOT -ErrorAction SilentlyContinue
+            Remove-Item Env:OUMSE_ROOT -ErrorAction SilentlyContinue
+            Remove-Item Env:SVC_ROOT -ErrorAction SilentlyContinue
+            Remove-Item Env:SVC_RUNNER_EXE -ErrorAction SilentlyContinue
+
+            $exe = Join-Path $app "runtime\runner\BestMDMToolRunner.exe"
+            if (-not (Test-Path $exe)) { throw "Runner copy failed: $exe" }
+            Write-Host "Installed-layout runner: $exe"
+            Get-ChildItem $runner | Select-Object -First 12 Name | Format-Table | Out-String | Write-Host
+
+            $report = Join-Path $env:TEMP "bestmdmtool-installed-selftest.json"
+            if (Test-Path $report) { Remove-Item -Force $report }
+            $proc = Start-Process -FilePath $exe -ArgumentList @("--selftest", "`"$report`"") -Wait -PassThru -NoNewWindow
+            if (-not (Test-Path $report)) { throw "Installed layout produced no self-test report (exit $($proc.ExitCode))" }
+            $raw = Get-Content $report -Raw
+            $json = $raw | ConvertFrom-Json
+            Write-Host $raw
+            $detail = $raw -replace "`r?`n", " "
+            if ($detail.Length -gt 1200) { $detail = $detail.Substring(0, 1200) }
+
+            if ($proc.ExitCode -ne 0 -or -not $json.ok) {
+              Write-Output "::error::Installed layout self-test failed: $detail"
+              throw "Installed layout self-test failed (exit $($proc.ExitCode))"
+            }
+            if (-not $json.runtime_lib -or -not ($json.runtime_lib -like "$app*")) {
+              Write-Output "::error::Runner resolved runtime/lib outside the install: $($json.runtime_lib) | $detail"
+              throw "Runner resolved runtime/lib outside the install: $($json.runtime_lib)"
+            }
+            if (-not $json.libusb_backend) {
+              Write-Output "::error::Installed layout lost the libusb backend: $detail"
+              throw "Installed layout lost the libusb backend"
+            }
+            Write-Host "Installed layout OK: runtime/lib resolved to $($json.runtime_lib)" -ForegroundColor Green
+          } catch {
+            Write-Output "::error::Installed-layout check threw: $($_.Exception.Message)"
+            throw
           }
-          if (-not $json.runtime_lib -or -not ($json.runtime_lib -replace "/", "\").StartsWith($app)) {
-            throw "Runner resolved runtime/lib outside the install: $($json.runtime_lib)"
-          }
-          if (-not $json.libusb_backend) { throw "Installed layout lost the libusb backend" }
 
       - name: Verify installer
         shell: pwsh
