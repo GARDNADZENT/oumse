@@ -26,6 +26,10 @@ class FakeWidget:
         self._kids: list = []
 
     def __getattr__(self, name):
+        # Private names must exist for real: a typo like ``self._toggel_log()``
+        # would otherwise be swallowed by the stub and pass the tests.
+        if name.startswith("_") and not name.startswith("__"):
+            raise AttributeError(name)
         mock = MagicMock(name=name)
         setattr(self, name, mock)
         return mock

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import tkinter as tk
 from collections.abc import Callable
 from tkinter import filedialog, messagebox, ttk
@@ -73,12 +74,19 @@ class MainWindow(tk.Tk):
         self._build_body()
         self._build_footer()
         self._build_log_dock()
+        self._restore_window_state()
 
         self.show_page("dashboard")
 
         self.protocol("WM_DELETE_WINDOW", self._on_close)
         self.after(250, self._startup_diagnostics)
         self.bind("<F5>", lambda _event: self.controller.refresh_partitions(self._on_partitions_refreshed))
+        self.bind("<Control-l>", lambda _event: self._clear_log())
+        for index, key in enumerate(NAV_LABELS, start=1):
+            self.bind(
+                "<Control-Key-%d>" % index,
+                lambda _event, page_key=key: self.show_page(page_key),
+            )
 
     # -- construction ------------------------------------------------------
     def _build_header(self, product_subtitle: str) -> None:
@@ -245,6 +253,24 @@ class MainWindow(tk.Tk):
         self.log_dock.pack(side="bottom", fill="x")
         self.console = LogConsole(self.log_dock, height=9)
         self.console.pack(fill="both", expand=True, padx=8, pady=(6, 8))
+
+    def _restore_window_state(self) -> None:
+        """Reapply the saved geometry and log-dock state from last run."""
+        settings = self.controller.settings
+        geometry = (getattr(settings, "window_geometry", "") or "").strip()
+        if geometry and re.fullmatch(r"\d+x\d+(?:[+-]\d+[+-]\d+)?", geometry):
+            try:
+                self.geometry(geometry)
+            except Exception:
+                pass
+        if not getattr(settings, "log_expanded", True) and self._log_visible:
+            self.toggle_log()
+
+    def _clear_log(self) -> None:
+        try:
+            self.console.clear()
+        except Exception:
+            pass
 
     # -- page handling -----------------------------------------------------
     def show_page(self, key: str) -> None:

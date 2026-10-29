@@ -256,6 +256,22 @@ class PageActionTests(unittest.TestCase):
         self.assertTrue(_wait_for(lambda: session.seccfg.called), "seccfg never reached the session")
         self.assertFalse([text for text in self._errors() if "seccfg" not in text.lower()], self._errors())
 
+    def test_window_state_is_restored(self) -> None:
+        from bestmdmtool import branding
+        from bestmdmtool.settings import Settings
+        from bestmdmtool.ui.main_window import MainWindow
+
+        settings = Settings(window_geometry="1280x800+40+60", log_expanded=False)
+        with patch.object(Settings, "load", classmethod(lambda cls: settings)):
+            window = MainWindow(
+                product_name=branding.PRODUCT_NAME,
+                product_title=branding.PRODUCT_TITLE,
+                product_version=branding.PRODUCT_VERSION,
+                product_subtitle=branding.PRODUCT_SUBTITLE,
+                authorized_use=branding.AUTHORIZED_USE,
+            )
+        self.assertFalse(window._log_visible, "the collapsed log dock was not restored")
+
     def test_support_bundle_button_writes_and_reports(self) -> None:
         from bestmdmtool import support
 

@@ -6,6 +6,14 @@ mtkclient BROM/DA layer over a persistent session.
 
 > Use only on devices you own or are explicitly authorized to service.
 
+## Keyboard shortcuts
+
+| Keys | Action |
+| --- | --- |
+| `Ctrl+1` .. `Ctrl+8` | Switch between the eight pages |
+| `F5` | Refresh the partition table |
+| `Ctrl+L` | Clear the activity log |
+
 ## Logs and crash reports
 
 Every activity-log line is mirrored to
