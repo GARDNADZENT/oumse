@@ -131,9 +131,13 @@ jobs:
               Write-Output "::error::Installed layout self-test failed: $detail"
               throw "Installed layout self-test failed (exit $($proc.ExitCode))"
             }
-            if (-not $json.runtime_lib -or -not ($json.runtime_lib -like "$app*")) {
-              Write-Output "::error::Runner resolved runtime/lib outside the install: $($json.runtime_lib) | $detail"
-              throw "Runner resolved runtime/lib outside the install: $($json.runtime_lib)"
+            $expected = [System.IO.Path]::GetFullPath($app)
+            $resolved = if ($json.runtime_lib) { [System.IO.Path]::GetFullPath($json.runtime_lib) } else { "" }
+            Write-Host "Expected runtime/lib root: $expected"
+            Write-Host "Runner reported          : $resolved"
+            if (-not $resolved -or -not $resolved.StartsWith($expected, [System.StringComparison]::OrdinalIgnoreCase)) {
+              Write-Output "::error::Runner resolved runtime/lib outside the install: '$resolved' vs '$expected' | $detail"
+              throw "Runner resolved runtime/lib outside the install: '$resolved' vs '$expected'"
             }
             if (-not $json.libusb_backend) {
               Write-Output "::error::Installed layout lost the libusb backend: $detail"
