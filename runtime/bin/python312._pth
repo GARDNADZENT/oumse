@@ -1,5 +1,5 @@
 python312.zip
 .
-..\OumseMode A1B
-
+.\Lib\site-packages
+..\lib
 import site

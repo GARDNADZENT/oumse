@@ -1,0 +1,44 @@
+name: Build Windows Installer
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+  pull_request:
+    branches:
+      - arena/010a7cc2-oumse
+
+jobs:
+  build-installer:
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Inno Setup 6
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+
+      - name: Build installer
+        shell: pwsh
+        run: ./installer/build_installer.ps1
+
+      - name: Verify installer
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem -Path installer/artifacts/*.exe | Select-Object -First 1
+          if (-not $exe) { throw "Installer .exe not found in installer/artifacts" }
+          $hash = Get-FileHash -Path $exe.FullName -Algorithm SHA256
+          Write-Host "Installer: $($exe.FullName)"
+          Write-Host "SHA256: $($hash.Hash)"
+          if (-not (Test-Path installer/artifacts/SHA256SUMS.txt)) {
+            throw "SHA256SUMS.txt was not generated"
+          }
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: OumseNoLoginSetup
+          path: installer/artifacts/*
+          if-no-files-found: error

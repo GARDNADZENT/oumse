@@ -1,0 +1,60 @@
+name: Build BestMDMTool Windows Installer
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - arena/010a7cc2-oumse
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bestmdmtool-installer-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-installer:
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Inno Setup 6
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+
+      - name: Build installer
+        shell: pwsh
+        run: ./installer-bestmdmtool/build_installer.ps1
+
+      - name: Verify installer
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem -Path installer-bestmdmtool/artifacts/*.exe | Select-Object -First 1
+          if (-not $exe) { throw "Installer .exe not found in installer-bestmdmtool/artifacts" }
+          $hash = Get-FileHash -Path $exe.FullName -Algorithm SHA256
+          Write-Host "Installer: $($exe.FullName)"
+          Write-Host "Size bytes: $($exe.Length)"
+          Write-Host "SHA256: $($hash.Hash)"
+          if (-not (Test-Path installer-bestmdmtool/artifacts/SHA256SUMS.txt)) {
+            throw "SHA256SUMS.txt was not generated"
+          }
+          @"
+          ### BestMDMTool installer
+          | Item | Value |
+          | --- | --- |
+          | File | $($exe.Name) |
+          | Size | $([math]::Round($exe.Length / 1MB, 2)) MiB |
+          | SHA256 | `$($hash.Hash)` |
+          "@ | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: BestMDMToolSetup
+          path: installer-bestmdmtool/artifacts/*
+          if-no-files-found: error
+          retention-days: 30

@@ -1,0 +1,27 @@
+@echo off
+title Oumse GSM Tool Pro - No Login
+setlocal
+cd /d "%~dp0"
+set "PYTHONPATH=%CD%"
+
+rem The GUI needs a Python with Tkinter; the bundled runtime is used only for
+rem the headless BROM runner. Try the Windows launcher first, then python.
+set "GUI_PYTHON=py -3"
+%GUI_PYTHON% -c "import tkinter" >nul 2>nul
+if errorlevel 1 set "GUI_PYTHON=python"
+%GUI_PYTHON% -c "import tkinter" >nul 2>nul
+if errorlevel 1 (
+  echo.
+  echo Python with Tkinter is required to start the no-login GUI.
+  echo Install Python 3.10 or newer from python.org with the tcl/tk option enabled.
+  pause
+  exit /b 1
+)
+
+echo Starting Oumse GSM Tool Pro - Community Edition (no login)...
+%GUI_PYTHON% -m app
+if errorlevel 1 (
+  echo.
+  echo The application exited with an error.
+  pause
+)

@@ -1,0 +1,6 @@
+# The no-login community GUI uses only the Python standard library.
+# Tkinter is part of CPython but may be a separate OS package on Linux
+# (for example: python3-tk on Debian/Ubuntu).
+#
+# Optional modern theme (not currently required by app/gui.py):
+# customtkinter>=5.2.2

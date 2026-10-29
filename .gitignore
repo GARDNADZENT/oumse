@@ -1,11 +1,58 @@
 __pycache__/
 *.py[cod]
+*.pyo
+*.pyd
 .venv/
 venv/
 .env
 .env.*
 !.env.example
+.env.local
+
+# Secrets and machine-specific configuration
 secrets.json
 server_config.json
+.remember.dat
+*.remember.dat
+hwparam.json
+
+# Runtime logs, dumps, and generated reports
+*.log
+runtime/lib/logs/
+*.bak
+*.tmp
+*.dump
+*.img
+*.bin.bak
+
+# Python tooling
+.eggs/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# Build outputs
 dist/
 build/
+out/
+target/
+
+# Accidental Windows copies / installer artifacts
+*.exe,
+OumseGsmToolPro.exe,
+oumsegsmtoolpro.exe*
+unins000.*
+
+# Generated installer artifacts
+installer/artifacts/*.exe
+installer/artifacts/*.zip
+installer/artifacts/*.sha256
+installer/artifacts/SHA256SUMS.txt
+installer-bestmdmtool/artifacts/*.exe
+installer-bestmdmtool/artifacts/*.zip
+installer-bestmdmtool/artifacts/*.sha256
+installer-bestmdmtool/artifacts/SHA256SUMS.txt
