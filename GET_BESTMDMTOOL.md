@@ -3,10 +3,11 @@
 BestMDMTool is a **separate, no-login** app in this repository. It opens
 straight to a full device workspace — no account, no server, no remote service.
 
-The workspace has twelve pages: Dashboard, Partition Manager, Firmware Flasher,
-Advanced Tools (raw flash + memory peek/poke), Bootloader, ADB & Fastboot,
-SPD Toolkit, SPD Firmware, SPD DIAG, Chipsets, Settings, and About. It drives
-both **MediaTek** (BROM/DA) and **Spreadtrum/Unisoc** (BSL/FDL) phones.
+The window is a three-column workspace like the OumseGSM tool: the tool list on
+the left, the operations for the chosen tool in the middle, and the live page
+with its action strip and console on the right. It drives both **MediaTek**
+(BROM/DA, mtkclient) and **Spreadtrum/Unisoc** (BSL/FDL) phones, and the
+interface switches between English, French, Portuguese and Arabic.
 
 > Use only on devices you own or are explicitly authorized to service.
 
@@ -126,9 +127,9 @@ that fails verification is refused before anything is written.
 | Item | Value |
 | --- | --- |
 | File | `BestMDMToolSetup-0.5.0.exe` |
-| Size | 67,546,929 bytes (64.4 MiB) |
+| Size | 67,609,999 bytes (64.5 MiB) |
 | Built by | GitHub Actions, Windows `windows-latest` |
-| SHA-256 | `43b514d11ae96f936737256e8e0c5c1c8d00d69ed6468d12382c23eeba464b81` |
+| SHA-256 | `23fa2bbbb2158033c20314782def98b2d734066fd4aef49e1e9bd6ab4c539890` |
 | Signing | **Not signed** — SmartScreen will warn (see below) |
 
 Install steps:
@@ -152,8 +153,8 @@ Get-FileHash .\BestMDMToolSetup-0.5.0.exe -Algorithm SHA256
 ```
 
 Compare the output with the contents of `SHA256SUMS.txt` on the release page.
-The 0.4.0 installer hashes to
-`43b514d11ae96f936737256e8e0c5c1c8d00d69ed6468d12382c23eeba464b81`.
+The 0.5.0 installer hashes to
+`23fa2bbbb2158033c20314782def98b2d734066fd4aef49e1e9bd6ab4c539890`.
 
 ---
 
