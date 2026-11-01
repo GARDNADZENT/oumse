@@ -70,11 +70,18 @@ class WindowSmokeTests(unittest.TestCase):
     def test_every_page_builds_and_shows(self) -> None:
         from bestmdmtool.ui.pages import PAGES
 
-        self.assertEqual(set(self.app._pages), set(PAGES))
+        # Every page exists, plus the explanatory notice pages behind the
+        # entries that would otherwise be a lock or account bypass.
+        missing = set(PAGES) - set(self.app._pages)
+        self.assertFalse(missing, "missing pages: %s" % sorted(missing))
+        self.assertTrue({"notice:mdm", "notice:frp"} <= set(self.app._pages))
         for key in PAGES:
             self.app.show_page(key)
             self.assertEqual(self.app._current, key)
             self.app._pages[key].on_show()
+        for key in [name for name in self.app._pages if name.startswith("notice:")]:
+            self.app.show_page(key)
+            self.assertEqual(self.app._current, key)
 
     def test_device_and_busy_callbacks_reach_every_page(self) -> None:
         device = {"chip": "MT6768", "hwcode": "0x0707", "storage": "UFS", "mode": "brom"}

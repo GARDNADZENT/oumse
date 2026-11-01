@@ -138,6 +138,27 @@ class BootloaderPage(BasePage):
             lambda result: self._write(getattr(result, "text", "")),
         )
 
+    def _fastboot_unlock(self) -> None:
+        """Send the official OEM unlock command over fastboot."""
+
+        if not self.app.confirm(
+            "Fastboot unlock",
+            "Send `fastboot flashing unlock` to the phone?\n\n"
+            "This wipes user data and voids the warranty. Only do this on a "
+            "device you own.",
+            danger=True,
+        ):
+            return
+
+        def _work():
+            return self.controller.fastboot.run("flashing", "unlock")
+
+        self.controller.run_async(
+            "Sending fastboot unlock",
+            _work,
+            lambda result: self._write(getattr(result, "text", "")),
+        )
+
     def _fastboot_reboot(self) -> None:
         def _work():
             return self.controller.fastboot.reboot()

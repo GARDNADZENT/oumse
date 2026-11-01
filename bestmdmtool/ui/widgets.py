@@ -62,6 +62,8 @@ class ActionButton(tk.Button):
             "danger": (theme.DANGER, "#ffffff", "#c93b3b", theme.DANGER),
             "warning": (theme.WARNING, "#1a1200", "#d18a08", theme.WARNING),
             "ghost": (theme.PANEL, theme.TEXT_MUTED, theme.PANEL_HOVER, theme.BORDER),
+            "outline": (theme.PANEL, theme.TEXT, theme.PANEL_HOVER, theme.BORDER),
+            "info": (theme.INFO, "#08131f", "#4a87bf", theme.INFO),
         }
         bg, fg, hover, border = colors.get(variant, colors["default"])
         super().__init__(
@@ -161,20 +163,33 @@ class StatTile(tk.Frame):
 
 
 class LogConsole(tk.Frame):
-    """Colourised, auto-scrolling log with save/clear actions."""
+    """Colourised, auto-scrolling log.
 
-    def __init__(self, master: tk.Misc, *, height: int = 10) -> None:
-        super().__init__(master, bg=theme.BG_ALT)
+    ``minimal`` drops the toolbar and switches to the black/green console look
+    used inside the workspace panel.
+    """
+
+    def __init__(self, master: tk.Misc, *, height: int = 10, minimal: bool = False) -> None:
+        self.minimal = minimal
+        surface = theme.CONSOLE_BG if minimal else theme.BG_ALT
+        super().__init__(master, bg=surface)
+        self._autoscroll = tk.BooleanVar(value=True)
+        if not minimal:
+            self._build_toolbar()
+        self._build_text(height=height)
+
+    # -- construction ------------------------------------------------------
+    def _build_toolbar(self) -> None:
         toolbar = tk.Frame(self, bg=theme.PANEL)
         toolbar.pack(fill="x")
-        tk.Label(
+        self.title_label = tk.Label(
             toolbar,
             text="ACTIVITY LOG",
             bg=theme.PANEL,
             fg=theme.TEXT_MUTED,
             font=theme.FONT_BADGE,
-        ).pack(side="left", padx=10, pady=5)
-        self._autoscroll = tk.BooleanVar(value=True)
+        )
+        self.title_label.pack(side="left", padx=10, pady=5)
         tk.Checkbutton(
             toolbar,
             text="auto-scroll",
@@ -188,21 +203,26 @@ class LogConsole(tk.Frame):
             bd=0,
             highlightthickness=0,
         ).pack(side="right", padx=6)
-        ActionButton(toolbar, "Clear", self.clear, variant="ghost", font=theme.FONT_BADGE).pack(
-            side="right", padx=(0, 6), pady=3
+        self.clear_button = ActionButton(
+            toolbar, "Clear", self.clear, variant="ghost", font=theme.FONT_BADGE
         )
-        ActionButton(toolbar, "Save", self._save, variant="ghost", font=theme.FONT_BADGE).pack(
-            side="right", padx=(0, 6), pady=3
+        self.clear_button.pack(side="right", padx=(0, 6), pady=3)
+        self.save_button = ActionButton(
+            toolbar, "Save", self._save, variant="ghost", font=theme.FONT_BADGE
         )
+        self.save_button.pack(side="right", padx=(0, 6), pady=3)
 
-        wrapper = tk.Frame(self, bg=theme.BG_ALT)
+    def _build_text(self, *, height: int) -> None:
+        surface = theme.CONSOLE_BG if self.minimal else theme.BG_ALT
+        foreground = theme.CONSOLE_TEXT if self.minimal else theme.TEXT
+        wrapper = tk.Frame(self, bg=surface)
         wrapper.pack(fill="both", expand=True)
         self.text = tk.Text(
             wrapper,
             height=height,
-            bg=theme.BG_ALT,
-            fg=theme.TEXT,
-            insertbackground=theme.TEXT,
+            bg=surface,
+            fg=foreground,
+            insertbackground=foreground,
             font=theme.FONT_MONO,
             relief="flat",
             bd=0,
@@ -219,6 +239,7 @@ class LogConsole(tk.Frame):
             self.text.tag_configure(level, foreground=color)
         self.text.tag_configure("TIME", foreground=theme.TEXT_DIM)
 
+    # -- api ---------------------------------------------------------------
     def write(self, message: str, level: str = "INFO") -> None:
         stamp = time.strftime("%H:%M:%S")
         self.text.configure(state="normal")

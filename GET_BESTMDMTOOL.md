@@ -64,6 +64,29 @@ the activity log, `F5` refreshes the partition table.
 so a typo such as `self._toggle_log()` (silently swallowed before) fails the
 build instead of the user.
 
+## What's new in 0.5.0
+
+**The window now looks and behaves like the OumseGSM tool.** Same three-column
+workspace: the tool list on the left, the operations for the chosen tool in the
+middle, and the live page with its action strip and console on the right.
+
+| Area | Detail |
+| --- | --- |
+| Tool list | `Partition Manager MTK & SPD`, `MDM Regional Patcher`, `Partition BROM mode`, `Direct Bypass MTK`, `Direct Permanent MTK`, `Tecno / Infinix Bootloader Unlock`, `SPD / Unisoc Bootloader Unlock`, `Partition SPD / Unisoc & OF`, `SPD Partition Diag Mode`, `Transsion ROM Maker`, `Transsion SPD ROM Maker`, `Fastboot OGT Flasher`, plus the six workspace pages |
+| Operations | Partition Manager, Read Info, Enable ADB, Factory Reset, unlock buttons, PAC flash/extract/build, DIAG, USB detection, self-test |
+| Action strip | Read / Write / Erase / Enable ADB style buttons that follow the open page |
+| Header | Local session card (engine, chip, uptime), EN / FR / PT / AR switch, clock |
+| Footer | Live status and a **STOP** button that cancels the job and closes the session |
+
+**Five entries explain themselves.** The MDM patcher, both direct-bypass tools,
+`Reset FRP` and `Factory + FRP` are lock and account bypasses. BestMDMTool keeps
+the buttons so the layout matches, but each one opens a page that says why it is
+missing and points at the tool that does work. Nothing there touches a phone.
+
+**Everything else is real:** partition read/write/erase/backup, raw flash,
+peek/poke, seccfg, ADB and fastboot, SPD partitions, PAC packages, the DIAG
+console and the 54-entry chipset database.
+
 ## What's new in 0.4.0
 
 **Spreadtrum / Unisoc support.** A second engine, side by side with MediaTek:
@@ -94,15 +117,15 @@ that fails verification is refused before anything is written.
 
 **Direct link:**
 
-<https://github.com/GARDNADZENT/oumse/releases/download/v0.4.0/BestMDMToolSetup-0.4.0.exe>
+<https://github.com/GARDNADZENT/oumse/releases/download/v0.5.0/BestMDMToolSetup-0.5.0.exe>
 
 **Release page** (also has `SHA256SUMS.txt`):
 
-<https://github.com/GARDNADZENT/oumse/releases/tag/v0.4.0>
+<https://github.com/GARDNADZENT/oumse/releases/tag/v0.5.0>
 
 | Item | Value |
 | --- | --- |
-| File | `BestMDMToolSetup-0.4.0.exe` |
+| File | `BestMDMToolSetup-0.5.0.exe` |
 | Size | 67,546,929 bytes (64.4 MiB) |
 | Built by | GitHub Actions, Windows `windows-latest` |
 | SHA-256 | `43b514d11ae96f936737256e8e0c5c1c8d00d69ed6468d12382c23eeba464b81` |
@@ -110,7 +133,7 @@ that fails verification is refused before anything is written.
 
 Install steps:
 
-1. Run `BestMDMToolSetup-0.4.0.exe`.
+1. Run `BestMDMToolSetup-0.5.0.exe`.
 2. Because the file is not code-signed, Windows shows
    *"Windows protected your PC"*. Click **More info → Run anyway**.
 3. Finish setup, then launch **BestMDMTool** from the Start Menu.
@@ -125,7 +148,7 @@ Python is **not required** on the target PC: the installer ships a standalone
 ### Verify the download (optional but recommended)
 
 ```powershell
-Get-FileHash .\BestMDMToolSetup-0.4.0.exe -Algorithm SHA256
+Get-FileHash .\BestMDMToolSetup-0.5.0.exe -Algorithm SHA256
 ```
 
 Compare the output with the contents of `SHA256SUMS.txt` on the release page.
@@ -176,7 +199,7 @@ The script:
 2. installs Inno Setup 6 automatically if `ISCC.exe` is missing (winget, then a
    direct download);
 3. compiles the installer to
-   `installer-bestmdmtool\artifacts\BestMDMToolSetup-0.4.0.exe`;
+   `installer-bestmdmtool\artifacts\BestMDMToolSetup-0.5.0.exe`;
 4. writes `installer-bestmdmtool\artifacts\SHA256SUMS.txt`.
 
 Alternative entry points:

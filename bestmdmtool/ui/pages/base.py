@@ -19,15 +19,19 @@ class BasePage(tk.Frame):
     description = ""
 
     def __init__(self, master: tk.Misc, app: MainWindow) -> None:
-        super().__init__(master, bg=theme.BG)
+        super().__init__(master, bg=theme.PANEL)
         self.app = app
         self.controller = app.controller
         self._build_header()
-        self.content = tk.Frame(self, bg=theme.BG)
-        self.content.pack(fill="both", expand=True, padx=18, pady=(0, 14))
+        self.content = tk.Frame(self, bg=theme.PANEL)
+        padding = 8 if getattr(app, "shell_chrome", False) else 0
+        self.content.pack(fill="both", expand=True, padx=padding, pady=(padding, padding))
         self.build()
 
     def _build_header(self) -> None:
+        # The shell already prints the tool name above the page.
+        if getattr(self.app, "shell_chrome", False):
+            return
         header = tk.Frame(self, bg=theme.BG)
         header.pack(fill="x", padx=18, pady=(16, 12))
         tk.Label(

@@ -7,13 +7,37 @@ heartbeat — and keeps one persistent session per device.
 
 > Use only on devices you own or are explicitly authorized to service.
 
+## Workspace layout
+
+The window is a three-column workspace, matching the OumseGSM tool:
+
+| Column | Contents |
+| --- | --- |
+| **Left** | The tool list: 12 device tools, then the workspace pages (Dashboard, Firmware Flasher, Advanced Tools, Chipset Database, Settings, About) |
+| **Middle** | Operations for the selected tool, grouped the way the original groups them (`Device`, `Reset shortcuts`, `Bootloader`, `Flash`, `Diagnostics`) |
+| **Right** | The live page, a contextual action strip, the progress bar and a black/green console |
+
+The title bar carries the local session card (engine, chip, uptime), the
+language switch and a clock. The footer shows the current status and a **STOP**
+button that cancels the running job and closes the session.
+
+**Languages:** EN / FR / PT / AR switch the navigation, the operation buttons,
+the header and the footer immediately, and the choice is saved. Arabic text
+renders correctly but the columns stay left-to-right — Tk has no layout mirroring.
+
+**Unavailable entries stay visible.** `MDM Regional Patcher`, `Direct Bypass
+MTK`, `Direct Permanent MTK`, `Reset FRP` and `Factory + FRP` are part of the
+OumseGSM button set but are lock or account bypasses, so in BestMDMTool they open
+an explanation page instead of acting. Everything else on that list is wired to
+a real operation.
+
 ## Keyboard shortcuts
 
 | Keys | Action |
 | --- | --- |
-| `Ctrl+1` .. `Ctrl+9` | Switch between the first nine pages |
+| `Ctrl+1` .. `Ctrl+9` | Switch between the first nine tools |
 | `F5` | Refresh the partition table |
-| `Ctrl+L` | Clear the activity log |
+| `Ctrl+L` | Clear the console |
 
 ## Logs and crash reports
 

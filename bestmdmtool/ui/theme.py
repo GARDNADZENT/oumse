@@ -6,46 +6,55 @@ import tkinter as tk
 from tkinter import ttk
 
 # -- palette ---------------------------------------------------------------
-BG = "#0d1117"
-BG_ALT = "#11161e"
-PANEL = "#161b24"
-PANEL_ALT = "#1b2230"
-PANEL_HOVER = "#212a3a"
-BORDER = "#263041"
-BORDER_SOFT = "#1e2735"
+# Near-black surfaces, one orange accent, four action colours. Matches the
+# OumseGSM workspace look: dark cards on a black canvas, orange for the tool
+# that is currently open.
+BG = "#08080a"
+BG_ALT = "#0d0d10"
+PANEL = "#151518"
+PANEL_ALT = "#1c1c21"
+PANEL_HOVER = "#26262c"
+BORDER = "#2b2b32"
+BORDER_SOFT = "#212127"
+SIDE = "#101013"
 
-TEXT = "#e6edf3"
-TEXT_MUTED = "#93a1b3"
-TEXT_DIM = "#6b7a8f"
+TEXT = "#ececee"
+TEXT_MUTED = "#9a9aa4"
+TEXT_DIM = "#6d6d78"
 
-ACCENT = "#3b82f6"
-ACCENT_HOVER = "#2f6fd0"
-ACCENT_DIM = "#1d3a63"
+ACCENT = "#f26a21"
+ACCENT_HOVER = "#d95a15"
+ACCENT_DIM = "#3a2110"
+ACCENT_TEXT = "#160b03"
 
-SUCCESS = "#22c55e"
-SUCCESS_DIM = "#12351f"
-WARNING = "#f59e0b"
-WARNING_DIM = "#3a2a08"
-DANGER = "#ef4444"
-DANGER_DIM = "#3d1416"
-INFO = "#38bdf8"
+SUCCESS = "#3ecf5f"
+SUCCESS_DIM = "#10290f"
+WARNING = "#f5a524"
+WARNING_DIM = "#33240a"
+DANGER = "#e5484d"
+DANGER_DIM = "#33161a"
+INFO = "#5b9bd5"
 
 FONT_UI = ("Segoe UI", 10)
 FONT_UI_SMALL = ("Segoe UI", 9)
 FONT_UI_BOLD = ("Segoe UI Semibold", 10)
-FONT_TITLE = ("Segoe UI Semibold", 17)
+FONT_TITLE = ("Segoe UI Semibold", 18)
 FONT_SUBTITLE = ("Segoe UI Semibold", 12)
 FONT_MONO = ("Consolas", 9)
 FONT_BADGE = ("Segoe UI", 8)
+FONT_NAV = ("Segoe UI", 8)
 
 LOG_COLORS = {
-    "INFO": TEXT,
+    "INFO": "#c8c8d0",
     "OK": SUCCESS,
     "WARN": WARNING,
     "ERROR": DANGER,
     "STEP": INFO,
     "DEBUG": TEXT_DIM,
 }
+
+CONSOLE_BG = "#050506"
+CONSOLE_TEXT = "#5ee07a"
 
 
 def configure_theme(root: tk.Misc) -> ttk.Style:

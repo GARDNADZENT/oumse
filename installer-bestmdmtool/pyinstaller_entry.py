@@ -50,7 +50,9 @@ def run_selftest(report_path: str) -> int:
     _ensure_import_path()
     try:
         import bestmdmtool.branding as branding
+        from bestmdmtool.ui.i18n import LANGUAGES
         from bestmdmtool.ui.pages import PAGES
+        from bestmdmtool.ui.sections import VISIBLE_SECTIONS
         from servicecore.adb import find_adb, find_fastboot
         from servicecore.config import ROOT, python_executable, service_runner_path
         from servicecore.service_session import ServiceSession
@@ -65,6 +67,8 @@ def run_selftest(report_path: str) -> int:
                 "python": str(python_executable()),
                 "python_exists": python_executable().exists(),
                 "pages": sorted(PAGES),
+                "sections": [section.key for section in VISIBLE_SECTIONS],
+                "languages": list(LANGUAGES),
                 "session_client": ServiceSession.__name__,
                 "adb": str(find_adb() or ""),
                 "fastboot": str(find_fastboot() or ""),
@@ -75,8 +79,14 @@ def run_selftest(report_path: str) -> int:
                           "chipsets", "settings", "about"}
         missing = sorted(required_pages - set(report["pages"]))
         report["missing_pages"] = missing
+        shell_ok = len(report["sections"]) >= 18 and len(report["languages"]) == 4
+        report["shell_ok"] = shell_ok
         report["ok"] = bool(
-            report["runner_exists"] and report["python_exists"] and report["runtime_lib"] and not missing
+            report["runner_exists"]
+            and report["python_exists"]
+            and report["runtime_lib"]
+            and not missing
+            and shell_ok
         )
     except Exception:
         report["error"] = traceback.format_exc()

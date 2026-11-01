@@ -124,6 +124,9 @@ class SettingsPage(BasePage):
         )
         self.paths_text.pack(fill="both", expand=True)
         self._refresh_paths()
+        updater = getattr(self.app, "_update_session_card", None)
+        if callable(updater):
+            updater()
 
     def _combo(self, master: tk.Misc, label: str, variable: tk.StringVar, values: tuple[str, ...]) -> None:
         wrapper = tk.Frame(master, bg=theme.PANEL)

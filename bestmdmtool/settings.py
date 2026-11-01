@@ -29,6 +29,7 @@ class Settings:
     last_dir: str = ""
     last_image_dir: str = ""
     log_expanded: bool = True
+    language: str = "en"
     window_geometry: str = ""
     extra: dict = field(default_factory=dict)
 
