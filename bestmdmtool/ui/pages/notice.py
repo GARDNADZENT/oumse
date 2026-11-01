@@ -52,7 +52,7 @@ class NoticePage(BasePage):
             font=theme.FONT_UI,
             anchor="w",
             justify="left",
-            wraplength=620,
+            wraplength=460,
         ).pack(fill="x", pady=(0, 14))
 
         tk.Frame(body, bg=theme.BORDER, height=1).pack(fill="x", pady=(0, 14))
@@ -65,7 +65,7 @@ class NoticePage(BasePage):
             font=theme.FONT_UI_SMALL,
             anchor="w",
             justify="left",
-            wraplength=620,
+            wraplength=460,
         ).pack(fill="x", pady=(0, 16))
 
         if self.alt:
