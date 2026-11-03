@@ -362,6 +362,12 @@ STRINGS: dict[str, dict[str, str]] = {
         "pt": "Identificar telefone (ATI)",
         "ar": "تعريف الهاتف (ATI)",
     },
+    "op.doctor": {
+        "en": "Connection doctor",
+        "fr": "Diagnostic de connexion",
+        "pt": "Diagnóstico da ligação",
+        "ar": "فحص الاتصال",
+    },
     "op.detect_usb": {
         "en": "Detect USB devices",
         "fr": "Détecter les appareils USB",

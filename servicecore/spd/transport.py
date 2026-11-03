@@ -214,41 +214,37 @@ def pair() -> tuple[LoopbackTransport, LoopbackTransport]:
 
 
 def list_serial_ports() -> list[str]:
-    """Return available serial port names, or an empty list when pyserial is absent."""
-    try:
-        from serial.tools import list_ports  # noqa: PLC0415 - optional dependency
-    except Exception:
-        return []
-    try:
-        return sorted(port.device for port in list_ports.comports())
-    except Exception:
-        return []
+    """Return available serial port names, falling back to the Windows device tree."""
+
+    from ..usbscan import serial_ports
+
+    ports = [entry["device"] for entry in serial_ports() if entry.get("device")]
+    if ports:
+        return sorted(ports)
+    from ..usbscan import pnp_devices
+
+    collect = sorted({device.port for device in pnp_devices() if device.port})
+    return collect
 
 
 def find_spd_usb() -> list[dict[str, object]]:
-    """Return connected USB devices that look like Spreadtrum hardware."""
-    try:
-        import usb.core  # noqa: PLC0415 - optional dependency
-    except Exception:
-        return []
+    """Return connected devices that look like Spreadtrum hardware."""
+
+    from ..usbscan import scan
     from .constants import SPD_USB_PIDS, SPD_USB_VID
 
     found: list[dict[str, object]] = []
-    try:
-        devices = list(usb.core.find(find_all=True) or [])
-    except Exception:
-        return []
-    for device in devices:
-        vid = getattr(device, "idVendor", 0)
-        pid = getattr(device, "idProduct", 0)
-        if vid == SPD_USB_VID:
-            found.append(
-                {
-                    "vid": vid,
-                    "pid": pid,
-                    "label": SPD_USB_PIDS.get(pid, "SPD device"),
-                    "bus": getattr(device, "bus", 0),
-                    "address": getattr(device, "address", 0),
-                }
-            )
+    for device in scan().devices:
+        if device.vid != SPD_USB_VID:
+            continue
+        found.append(
+            {
+                "vid": device.vid,
+                "pid": device.pid,
+                "label": SPD_USB_PIDS.get(device.pid, device.name or "SPD device"),
+                "port": device.port,
+                "service": device.service,
+                "mode": device.download_mode,
+            }
+        )
     return found

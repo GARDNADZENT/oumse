@@ -197,31 +197,39 @@ def summary() -> dict[str, object]:
 
 
 def scan_usb() -> list[dict[str, object]]:
-    """Return connected devices that match the database (needs pyusb)."""
-    try:
-        import usb.core  # noqa: PLC0415 - optional dependency
-    except Exception:
-        return []
-    try:
-        devices = list(usb.core.find(find_all=True) or [])
-    except Exception:
-        return []
-    found: list[dict[str, object]] = []
-    for device in devices:
-        vid = int(getattr(device, "idVendor", 0) or 0)
-        pid = int(getattr(device, "idProduct", 0) or 0)
-        chip = identify(vid, pid)
-        if chip is None and vid not in (MTK_VID, SPD_VID):
-            continue
-        found.append(
-            {
-                "vid": vid,
-                "pid": pid,
-                "usb": "%04X:%04X" % (vid, pid),
-                "vendor": chip.vendor if chip else ("MTK" if vid == MTK_VID else "SPD"),
-                "chip": chip.name if chip else "unknown",
-                "family": chip.family if chip else "",
-                "protocol": chip.protocol if chip else ("brom" if vid == MTK_VID else "bsl"),
-            }
-        )
-    return found
+    """Return connected MediaTek/Spreadtrum devices, from any available source."""
+
+    from .usbscan import scan
+
+    report = scan()
+    entries: list[dict[str, object]] = []
+    for device in report.relevant:
+        entry = device.as_dict()
+        chip = identify(device.vid, device.pid)
+        if chip is not None:
+            entry["chip"] = chip.name
+            entry["family"] = chip.family
+            entry["vendor"] = chip.vendor
+            entry["protocol"] = chip.protocol
+        else:
+            entry["family"] = ""
+        entries.append(entry)
+    return entries
+
+
+def scan_report() -> dict[str, object]:
+    """Full USB diagnosis: devices, ports, libraries, verdict and next steps."""
+
+    from .usbscan import scan
+
+    report = scan()
+    return {
+        "devices": [device.as_dict() for device in report.devices],
+        "relevant": [device.as_dict() for device in report.relevant],
+        "ports": report.ports,
+        "sources": report.sources,
+        "errors": report.errors,
+        "verdict": report.verdict,
+        "detail": report.detail,
+        "steps": report.steps,
+    }

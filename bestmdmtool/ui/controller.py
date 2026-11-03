@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from servicecore.adb import AdbTool, FastbootTool, find_adb, find_fastboot
-from servicecore.chipsets import scan_usb
+from servicecore.chipsets import scan_report
 from servicecore.config import frozen_runner_path, python_executable, runner_command, service_runner_path
 from servicecore.service_session import CommandResult, ServiceSession
 
@@ -173,6 +173,7 @@ class Controller:
                     self.log("Check the cable, USB drivers (UsbDk), and that the phone is in BROM mode.", "WARN")
                 self._on_disconnect("connection failed")
                 self.session = None
+                self.diagnose_connection()
 
         self.run_async("Connecting to device", _work, _done)
 
@@ -195,24 +196,111 @@ class Controller:
     def scan_usb_devices(self, done: Callable[[list[dict[str, Any]]], None] | None = None) -> None:
         """Look for connected MediaTek/Spreadtrum download devices."""
 
-        def _work() -> list[dict[str, Any]]:
-            return scan_usb()
+        def _work() -> dict[str, Any]:
+            return scan_report()
 
         def _done(result: Any) -> None:
-            devices = list(result or [])
-            if devices:
-                for entry in devices:
-                    self.log(
-                        "USB %s: %s %s (%s)"
-                        % (entry.get("usb"), entry.get("vendor"), entry.get("chip"), entry.get("protocol")),
-                        "OK",
-                    )
-            else:
-                self.log("No MediaTek or Spreadtrum download device detected on USB.", "WARN")
+            report = dict(result or {})
+            devices = list(report.get("relevant") or [])
+            self._log_report(report)
             if done is not None:
                 done(devices)
 
         self.run_async("Scanning USB devices", _work, _done)
+
+    def _log_report(self, report: dict[str, Any]) -> None:
+        """Print a USB scan the way a technician reads it: facts, then advice."""
+
+        sources = report.get("sources") or {}
+        self.log(
+            "USB check — pyusb: %s · device tree: %s · serial: %s"
+            % (
+                "yes" if sources.get("pyusb") else "no",
+                "yes" if sources.get("pnp") else "no",
+                "yes" if sources.get("serial") else "no",
+            ),
+            "DEBUG",
+        )
+        for name, message in (report.get("errors") or {}).items():
+            self.log("%s unavailable: %s" % (name, message), "DEBUG")
+        devices = list(report.get("devices") or [])
+        if devices:
+            for entry in devices[:12]:
+                self.log(
+                    "USB %s  %s  %s%s"
+                    % (
+                        entry.get("usb"),
+                        (entry.get("chip") or "")[:44],
+                        ("driver " + str(entry.get("service"))) if entry.get("service") else "no driver",
+                        ("  " + str(entry.get("port"))) if entry.get("port") else "",
+                    ),
+                    "INFO",
+                )
+        else:
+            self.log("No USB devices are visible at all.", "WARN")
+        verdict = str(report.get("verdict") or "")
+        detail = str(report.get("detail") or "")
+        if detail:
+            self.log(detail, "OK" if verdict == "download" else "WARN")
+        for step in report.get("steps") or []:
+            self.log("  -> %s" % step, "INFO")
+
+    def usb_snapshot(self) -> None:
+        """One log line at startup: what USB currently looks like."""
+
+        def _work() -> dict[str, Any]:
+            return scan_report()
+
+        def _done(result: Any) -> None:
+            report = dict(result or {})
+            devices = report.get("devices") or []
+            level = "OK" if report.get("verdict") == "download" else "INFO"
+            self.log(
+                "%s (%d USB device%s visible)"
+                % (report.get("detail") or "USB scan finished", len(devices), "" if len(devices) == 1 else "s"),
+                level,
+            )
+
+        self.run_async("Checking USB", _work, _done)
+
+    def diagnose_connection(self, done: Callable[[dict[str, Any]], None] | None = None) -> None:
+        """Explain why a connection does not work, including what is on USB."""
+
+        def _work() -> dict[str, Any]:
+            report = scan_report()
+            adb_lines: list[str] = []
+            try:
+                for serial, state in self.adb.devices():
+                    adb_lines.append("%s (%s)" % (serial, state))
+            except Exception:
+                adb_lines = []
+            report["adb"] = adb_lines
+            report["engine"] = getattr(self, "engine", "mtk")
+            return report
+
+        def _done(result: Any) -> None:
+            report = dict(result or {})
+            self.log("Connection doctor", "STEP")
+            self._log_report(report)
+            adb = list(report.get("adb") or [])
+            if adb:
+                self.log("ADB sees: %s" % ", ".join(adb), "INFO")
+                self.log(
+                    "The phone answers ADB, so it is booted into Android. Power it off before "
+                    "trying a BROM/BSL connection.",
+                    "WARN",
+                )
+            elif report.get("verdict") == "nothing":
+                self.log(
+                    "ADB sees nothing either, so the phone is not enumerating as Android or as a "
+                    "download port. Try another cable or port, and watch Device Manager while "
+                    "plugging it in.",
+                    "WARN",
+                )
+            if done is not None:
+                done(report)
+
+        self.run_async("Diagnosing the connection", _work, _done)
 
     def disconnect(self, *, reboot: bool = False) -> None:
         session = self.session

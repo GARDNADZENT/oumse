@@ -164,7 +164,9 @@ class ChipsetsPage(BasePage):
 
         def _done(devices: list[dict[str, Any]]) -> None:
             if not devices:
-                self.status_label.configure(text="No MediaTek/Spreadtrum device in download mode found.")
+                self.status_label.configure(
+                    text="No download-mode phone on USB. Run the Connection doctor for the reason."
+                )
                 return
             self.status_label.configure(
                 text="Detected: "
@@ -177,6 +179,19 @@ class ChipsetsPage(BasePage):
                 self.tree.see(chip)
 
         self.controller.scan_usb_devices(_done)
+
+    def _doctor(self) -> None:
+        """Full USB diagnosis, shown here as well as in the console."""
+
+        self.status_label.configure(text="Checking USB, drivers and ADB...")
+
+        def _done(report: dict[str, Any]) -> None:
+            self.status_label.configure(
+                text="%s  ·  %d USB device(s) visible"
+                % (report.get("detail") or "scan finished", len(report.get("devices") or []))
+            )
+
+        self.controller.diagnose_connection(_done)
 
     def on_show(self) -> None:
         self.family_box.configure(values=["All"] + families())

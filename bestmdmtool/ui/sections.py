@@ -123,6 +123,7 @@ BROM_OPS: tuple[Op, ...] = (
     Op("op.export_gpt", page_action("partitions", "_export_gpt")),
     Op("op.backup_all", page_action("partitions", "_backup_all")),
     Op("app.group_diag", kind="group"),
+    Op("op.doctor", page_action("chipsets", "_doctor")),
     Op("op.read_info", page_action("dashboard", "_diagnostics")),
     Op("op.reboot", page_action("partitions", "_reboot"), "warning"),
 )
@@ -158,6 +159,7 @@ SPD_OPS: tuple[Op, ...] = (
     Op("op.open_pac", page_action("pac", "_open_pac")),
     Op("op.flash_pac", page_action("pac", "_flash_pac"), "danger"),
     Op("app.group_diag", kind="group"),
+    Op("op.doctor", page_action("chipsets", "_doctor")),
     Op("op.diag_console", page_action("diag", "_identify")),
     Op("op.detect_usb", page_action("chipsets", "_detect")),
 )
@@ -363,16 +365,16 @@ QUICK_ACTIONS: dict[str, tuple[tuple[str, Callable[[Any], None], str], ...]] = {
         ("op.read_info", page_action("dashboard", "_diagnostics"), "default"),
     ),
     "chipsets": (
-        ("op.detect_usb", page_action("chipsets", "_detect"), "info"),
-        ("op.selftest", page_action("settings", "_run_selftest"), "accent"),
-        ("op.diag_console", page_action("diag", "_identify"), "success"),
-        ("op.read_info", page_action("dashboard", "_diagnostics"), "default"),
+        ("op.doctor", page_action("chipsets", "_doctor"), "info"),
+        ("op.detect_usb", page_action("chipsets", "_detect"), "accent"),
+        ("op.selftest", page_action("settings", "_run_selftest"), "success"),
+        ("op.diag_console", page_action("diag", "_identify"), "default"),
     ),
     "dashboard": (
-        ("op.read_info", page_action("dashboard", "_diagnostics"), "info"),
-        ("op.refresh_table", page_action("dashboard", "_refresh"), "accent"),
+        ("op.doctor", page_action("chipsets", "_doctor"), "info"),
+        ("op.read_info", page_action("dashboard", "_diagnostics"), "accent"),
+        ("op.refresh_table", page_action("dashboard", "_refresh"), "success"),
         ("op.reboot", page_action("dashboard", "_reboot"), "danger"),
-        ("op.selftest", page_action("settings", "_run_selftest"), "success"),
     ),
     "settings": (
         ("op.save_settings", page_action("settings", "_save"), "info"),

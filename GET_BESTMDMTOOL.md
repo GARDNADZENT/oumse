@@ -65,6 +65,44 @@ the activity log, `F5` refreshes the partition table.
 so a typo such as `self._toggle_log()` (silently swallowed before) fails the
 build instead of the user.
 
+## What's new in 0.5.1 — "my phone is connected but the tool sees nothing"
+
+**The real bug:** the installed `BestMDMTool.exe` was built *without* pyusb,
+pyserial and libusb. The USB scan therefore failed on every launch and reported
+"no device", whether or not a phone was plugged in. The build now bundles those
+libraries into the GUI executable, and the release is blocked if they are
+missing (`usb_ok` in the frozen self-test).
+
+**New: Connection doctor.** One button lists every USB device Windows reports,
+the driver bound to each (WinUSB / libusbK / usbser / none), COM ports, and then
+prints a single verdict plus the steps that apply to it:
+
+| Verdict | Meaning |
+| --- | --- |
+| `download` | A phone is already in PreLoader/BROM or BSL/FDL mode — press Connect |
+| `android` | The phone is booted into Android — power off and use the download keys |
+| `present_not_download` | MediaTek/Spreadtrum hardware present, but no download mode open |
+| `backend` | pyusb present but libusb could not enumerate — reinstall |
+| `nothing` | Windows does not see the phone at all — cable, port or driver |
+
+**Three independent detection paths:** pyusb, the Windows device tree
+(`Get-CimInstance`, always available) and pyserial. One missing library can no
+longer hide a connected phone.
+
+**Also:** every launch logs a one-line USB snapshot, and a failed Connect now
+runs the doctor automatically, so the console explains the failure instead of
+just saying "connection failed".
+
+### If your phone still is not detected
+
+1. Press **Connection doctor** and read the verdict.
+2. `android` → the phone is simply booted. Power it off completely first.
+3. MediaTek: hold **Volume-** (some phones need Volume+ and Volume-, or a test
+   point) while plugging the cable in; the screen stays black.
+4. Spreadtrum: hold **Volume-** while plugging in. If Windows binds the phone to
+   a COM port, set **Settings → SPD transport = serial** and pick that port.
+5. If Device Manager shows a yellow mark, the USB driver is missing.
+
 ## What's new in 0.5.0
 
 **The window now looks and behaves like the OumseGSM tool.** Same three-column
@@ -118,15 +156,15 @@ that fails verification is refused before anything is written.
 
 **Direct link:**
 
-<https://github.com/GARDNADZENT/oumse/releases/download/v0.5.0/BestMDMToolSetup-0.5.0.exe>
+<https://github.com/GARDNADZENT/oumse/releases/download/v0.5.1/BestMDMToolSetup-0.5.1.exe>
 
 **Release page** (also has `SHA256SUMS.txt`):
 
-<https://github.com/GARDNADZENT/oumse/releases/tag/v0.5.0>
+<https://github.com/GARDNADZENT/oumse/releases/tag/v0.5.1>
 
 | Item | Value |
 | --- | --- |
-| File | `BestMDMToolSetup-0.5.0.exe` |
+| File | `BestMDMToolSetup-0.5.1.exe` |
 | Size | 67,609,999 bytes (64.5 MiB) |
 | Built by | GitHub Actions, Windows `windows-latest` |
 | SHA-256 | `23fa2bbbb2158033c20314782def98b2d734066fd4aef49e1e9bd6ab4c539890` |
@@ -134,7 +172,7 @@ that fails verification is refused before anything is written.
 
 Install steps:
 
-1. Run `BestMDMToolSetup-0.5.0.exe`.
+1. Run `BestMDMToolSetup-0.5.1.exe`.
 2. Because the file is not code-signed, Windows shows
    *"Windows protected your PC"*. Click **More info → Run anyway**.
 3. Finish setup, then launch **BestMDMTool** from the Start Menu.
@@ -149,7 +187,7 @@ Python is **not required** on the target PC: the installer ships a standalone
 ### Verify the download (optional but recommended)
 
 ```powershell
-Get-FileHash .\BestMDMToolSetup-0.5.0.exe -Algorithm SHA256
+Get-FileHash .\BestMDMToolSetup-0.5.1.exe -Algorithm SHA256
 ```
 
 Compare the output with the contents of `SHA256SUMS.txt` on the release page.
@@ -200,7 +238,7 @@ The script:
 2. installs Inno Setup 6 automatically if `ISCC.exe` is missing (winget, then a
    direct download);
 3. compiles the installer to
-   `installer-bestmdmtool\artifacts\BestMDMToolSetup-0.5.0.exe`;
+   `installer-bestmdmtool\artifacts\BestMDMToolSetup-0.5.1.exe`;
 4. writes `installer-bestmdmtool\artifacts\SHA256SUMS.txt`.
 
 Alternative entry points:

@@ -991,6 +991,9 @@ class MainWindow(tk.Tk):
         self.log("No login required — opens directly to the device workspace.", "INFO")
         self.log(self.authorized_use, "WARN")
         self._update_session_card()
+        # Say what USB looks like right now, so a plugged-in phone is never a
+        # silent no-op. The full breakdown lives behind the Connection doctor.
+        self.controller.usb_snapshot()
 
     def _restore_window_state(self) -> None:
         settings = self.controller.settings

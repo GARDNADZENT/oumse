@@ -53,6 +53,7 @@ def run_selftest(report_path: str) -> int:
         from bestmdmtool.ui.i18n import LANGUAGES
         from bestmdmtool.ui.pages import PAGES
         from bestmdmtool.ui.sections import VISIBLE_SECTIONS
+        from servicecore import usbscan
         from servicecore.adb import find_adb, find_fastboot
         from servicecore.config import ROOT, python_executable, service_runner_path
         from servicecore.service_session import ServiceSession
@@ -67,6 +68,10 @@ def run_selftest(report_path: str) -> int:
                 "python": str(python_executable()),
                 "python_exists": python_executable().exists(),
                 "pages": sorted(PAGES),
+                "usb_interfaces": {
+                    "pyusb": bool(usbscan.interface_status().get("pyusb")),
+                    "pyserial": bool(usbscan.interface_status().get("pyserial")),
+                },
                 "sections": [section.key for section in VISIBLE_SECTIONS],
                 "languages": list(LANGUAGES),
                 "session_client": ServiceSession.__name__,
@@ -81,12 +86,16 @@ def run_selftest(report_path: str) -> int:
         report["missing_pages"] = missing
         shell_ok = len(report["sections"]) >= 18 and len(report["languages"]) == 4
         report["shell_ok"] = shell_ok
+        # A build without these libraries cannot see any phone, so it must not ship.
+        usb_interfaces = report["usb_interfaces"]
+        report["usb_ok"] = bool(usb_interfaces["pyusb"] and usb_interfaces["pyserial"])
         report["ok"] = bool(
             report["runner_exists"]
             and report["python_exists"]
             and report["runtime_lib"]
             and not missing
             and shell_ok
+            and report["usb_ok"]
         )
     except Exception:
         report["error"] = traceback.format_exc()

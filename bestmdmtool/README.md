@@ -49,6 +49,24 @@ it. **Settings -> Export support bundle** zips the activity log, the newest
 crash report, a backend self-test result and the device snapshot into a single
 file on the Desktop, ready to attach to a bug report.
 
+## When the phone is not detected
+
+**Connection doctor** (Chipset Database page, or the button in the operations
+column) is the first thing to press. It lists every USB device Windows reports,
+with the driver bound to each one, then prints one verdict and the next steps:
+
+| Verdict | What it means |
+| --- | --- |
+| `download` | A phone is in PreLoader/BROM or BSL/FDL mode — press Connect |
+| `android` | The phone is booted into Android; power it off and use the download keys |
+| `present_not_download` | MediaTek/Spreadtrum hardware is there but not in a download mode |
+| `backend` | pyusb is installed but libusb could not enumerate — reinstall |
+| `nothing` | Windows itself does not see the phone: cable, port or driver |
+
+Detection uses three independent sources — pyusb, the Windows device tree
+(PowerShell) and serial ports — so a missing library in one path cannot hide a
+connected phone. Every launch also logs a one-line USB snapshot.
+
 ## Diagnosing a failed connection
 
 **Settings -> Run backend self-test** executes `BestMDMToolRunner.exe --selftest`

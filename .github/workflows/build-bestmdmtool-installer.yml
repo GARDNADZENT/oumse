@@ -58,6 +58,9 @@ jobs:
           if (-not $json.ok) { throw "Self-test reported failure" }
           if (-not $json.runner_exists) { throw "service_runner.py missing from the bundle" }
           if (-not $json.python_exists) { throw "Bundled runtime Python missing" }
+          if (-not $json.usb_ok) {
+            throw "USB libraries missing from the GUI bundle (pyusb/pyserial): $($json.usb_interfaces | ConvertTo-Json -Compress)"
+          }
           foreach ($page in @("dashboard", "partitions", "flasher", "advanced", "bootloader", "adb", "settings", "about")) {
             if ($json.pages -notcontains $page) { throw "UI page missing from bundle: $page" }
           }

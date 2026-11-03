@@ -96,6 +96,12 @@ Write-Host "Building BestMDMTool.exe (GUI)..."
     "--paths", $root,
     "--collect-submodules", "bestmdmtool",
     "--collect-submodules", "servicecore",
+    # The GUI scans USB itself, so it needs the same device libraries as the
+    # runner. Without these every scan silently reported "no device".
+    "--collect-all", "usb",
+    "--collect-all", "serial",
+    "--collect-all", "libusb",
+    "--collect-all", "colorama",
     "--distpath", $frozenDir,
     "--workpath", (Join-Path $workDir "gui"),
     "--specpath", (Join-Path $workDir "gui"),
@@ -128,15 +134,20 @@ Write-Host "Building BestMDMToolRunner.exe (device backend)..."
 if ($LASTEXITCODE -ne 0) { throw "PyInstaller failed for the runner (exit $LASTEXITCODE)." }
 
 # mtkclient loads libusb by bare name, so it must sit next to the runner exe.
-$runnerDir = Join-Path $frozenDir "BestMDMToolRunner"
+# The GUI opens USB itself for detection, so it needs the DLL beside it too.
 $libusbSource = Join-Path $libDir "mtkclient\Windows"
-foreach ($dll in @("libusb-1.0.dll", "libusb32-1.0.dll")) {
-    $source = Join-Path $libusbSource $dll
-    if (Test-Path $source) {
-        Copy-Item -Path $source -Destination (Join-Path $runnerDir $dll) -Force
-        Write-Host "Bundled $dll"
-    } else {
-        Write-Warning "libusb DLL not found: $source"
+foreach ($target in @(
+        (Join-Path $frozenDir "BestMDMToolRunner"),
+        (Join-Path $frozenDir "BestMDMTool")
+    )) {
+    foreach ($dll in @("libusb-1.0.dll", "libusb32-1.0.dll")) {
+        $source = Join-Path $libusbSource $dll
+        if (Test-Path $source) {
+            Copy-Item -Path $source -Destination (Join-Path $target $dll) -Force
+            Write-Host "Bundled $dll -> $(Split-Path -Leaf $target)"
+        } else {
+            Write-Warning "libusb DLL not found: $source"
+        }
     }
 }
 
