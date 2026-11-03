@@ -206,8 +206,14 @@ that fails verification is refused before anything is written.
 
 Direct installer: [BestMDMToolSetup-0.5.3.exe](https://github.com/GARDNADZENT/oumse/releases/download/v0.5.3/BestMDMToolSetup-0.5.3.exe)
 
-Installer size and SHA-256: see `SHA256SUMS.txt` on the release page. v0.5.2 is withdrawn;
-do not download or run it for device work.
+| Item | Value |
+| --- | --- |
+| File | `BestMDMToolSetup-0.5.3.exe` |
+| Size | 54,227,003 bytes (51.7 MiB) |
+| SHA-256 | `f21e81642e99db6dab0e91c28a7ecf2ca08e4c0693e03492ce52bd914511e7c5` |
+| Signing | Unsigned; Windows SmartScreen may prompt |
+
+v0.5.2 is withdrawn; do not download or run it for device work.
 
 Install steps:
 
@@ -228,7 +234,7 @@ Python is **not required** on the target PC: the installer ships a standalone
 Get-FileHash .\BestMDMToolSetup-0.5.3.exe -Algorithm SHA256
 ```
 
-Compare the output with the contents of `SHA256SUMS.txt` on the v0.5.3 release page.
+Compare the output with the value above and the `SHA256SUMS.txt` file on the v0.5.3 release page.
 
 ---
 
