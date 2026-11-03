@@ -199,9 +199,9 @@ that fails verification is refused before anything is written.
 | Item | Value |
 | --- | --- |
 | File | `BestMDMToolSetup-0.5.2.exe` |
-| Size | 68,849,239 bytes (65.7 MiB) |
+| Size | 68,860,902 bytes (65.7 MiB) |
 | Built by | GitHub Actions, Windows `windows-latest` |
-| SHA-256 | `bfc1f7dc86c4377bc78956e12a0f04066374efc92d07faed6b2ec67b87959ece` |
+| SHA-256 | `d5656e5a6cd231af7cce44c5b8635a0db946d80fb9d9e5be14ba73b70334c959` |
 | Signing | **Not signed** — SmartScreen will warn (see below) |
 
 Install steps:
@@ -225,8 +225,8 @@ Get-FileHash .\BestMDMToolSetup-0.5.2.exe -Algorithm SHA256
 ```
 
 Compare the output with the contents of `SHA256SUMS.txt` on the release page.
-The 0.5.1 installer hashes to
-`bfc1f7dc86c4377bc78956e12a0f04066374efc92d07faed6b2ec67b87959ece`.
+The 0.5.2 installer hashes to
+`d5656e5a6cd231af7cce44c5b8635a0db946d80fb9d9e5be14ba73b70334c959`.
 
 ---
 
