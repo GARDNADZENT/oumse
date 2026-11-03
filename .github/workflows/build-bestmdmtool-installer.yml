@@ -161,11 +161,13 @@ jobs:
         shell: pwsh
         run: |
           $exe = "installer-bestmdmtool/frozen/BestMDMToolRunner/BestMDMToolRunner.exe"
-          $out = & $exe 2>&1
-          $code = $LASTEXITCODE
-          $text = $out -join "`n"
-          Write-Host $text
-          if ($code -eq 0 -or $text -notmatch "mtk_temporarily_disabled_security_review") {
+          $report = Join-Path $env:TEMP "bestmdmtool-mtk-disabled-selftest.json"
+          if (Test-Path $report) { Remove-Item -Force $report }
+          $proc = Start-Process -FilePath $exe -ArgumentList @("--selftest-mtk-disabled", "`"$report`"") -Wait -PassThru -NoNewWindow
+          if (-not (Test-Path $report)) { throw "MTK safety self-test wrote no report (exit $($proc.ExitCode))" }
+          $json = Get-Content $report -Raw | ConvertFrom-Json
+          Write-Host ($json | ConvertTo-Json -Depth 3)
+          if ($proc.ExitCode -ne 0 -or -not $json.ok -or -not $json.refused) {
             throw "MediaTek runner did not fail closed before device access"
           }
 

@@ -1,5 +1,8 @@
 """Regression tests for the field-reported security and erase failures."""
 import ast
+import contextlib
+import importlib.util
+import io
 import json
 import os
 import tempfile
@@ -31,6 +34,24 @@ class FailSafeTests(unittest.TestCase):
         with self.assertRaises(SystemExit):
             connect()
         fail.assert_called_once_with("connect", "mtk_temporarily_disabled_security_review", 1)
+
+    def test_runner_entry_selftest_proves_mtk_refusal_without_hardware(self):
+        root = SOURCE.parents[2]
+        entry = root / "installer-bestmdmtool" / "runner_entry.py"
+        spec = importlib.util.spec_from_file_location("bestmdmtool_runner_entry_test", entry)
+        module = importlib.util.module_from_spec(spec)
+        assert spec is not None and spec.loader is not None
+        spec.loader.exec_module(module)
+        with tempfile.TemporaryDirectory() as directory:
+            report_path = Path(directory) / "mtk-disabled.json"
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                result = module.selftest_mtk_disabled(str(report_path))
+            report = json.loads(report_path.read_text(encoding="utf-8"))
+        self.assertEqual(result, 0)
+        self.assertTrue(report["ok"])
+        self.assertTrue(report["refused"])
+        self.assertIn("mtk_temporarily_disabled_security_review", output.getvalue())
 
     def test_seccfg_never_calls_device(self):
         fail = Mock()

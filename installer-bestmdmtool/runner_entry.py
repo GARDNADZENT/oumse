@@ -131,7 +131,43 @@ def run_selftest(report_path: str) -> int:
     return 0 if report.get("ok") else 1
 
 
+def selftest_mtk_disabled(report_path: str) -> int:
+    """Prove that the MTK entry point refuses before opening a device."""
+    _ensure_import_path()
+    report: dict[str, object] = {"ok": False, "mtk_available": False}
+    try:
+        from servicecore.runner.service_runner import connect
+
+        try:
+            connect()
+        except SystemExit as exc:
+            report["refused"] = exc.code == 1
+            report["reason"] = "mtk_temporarily_disabled_security_review"
+            report["ok"] = exc.code == 1
+        else:
+            report["refused"] = False
+            report["error"] = "MTK connect returned without the required refusal"
+    except Exception as exc:
+        report["error"] = "%s: %s" % (exc.__class__.__name__, exc)
+
+    try:
+        with open(report_path, "w", encoding="utf-8") as handle:
+            json.dump(report, handle, indent=2)
+    except OSError:
+        pass
+    return 0 if report.get("ok") else 1
+
+
 def main() -> int:
+    if "--selftest-mtk-disabled" in sys.argv:
+        index = sys.argv.index("--selftest-mtk-disabled")
+        target = (
+            sys.argv[index + 1]
+            if len(sys.argv) > index + 1
+            else os.path.join(tempfile.gettempdir(), "bestmdmtool-mtk-disabled-selftest.json")
+        )
+        return selftest_mtk_disabled(target)
+
     if "--selftest" in sys.argv and _engine_from_argv() == "spd":
         _ensure_import_path()
         from servicecore.runner.spd_runner import selftest as spd_selftest
