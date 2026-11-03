@@ -261,7 +261,7 @@ class PageActionTests(unittest.TestCase):
         with patch.object(type(self.app.controller.settings), "save", lambda _self: None):
             boot._seccfg("unlock")
 
-        self.assertTrue(_wait_for(lambda: session.seccfg.called), "seccfg never reached the session")
+        session.seccfg.assert_not_called()
         self.assertFalse([text for text in self._errors() if "seccfg" not in text.lower()], self._errors())
 
     def test_window_state_is_restored(self) -> None:
@@ -311,7 +311,11 @@ class PageActionTests(unittest.TestCase):
 
         page = self.app._pages["settings"]
         original = selfcheck.run
-        selfcheck.run = lambda *args, **kwargs: {"ok": True, "lines": ["mtkclient: yes"], "duration": 0.1}
+        selfcheck.run = lambda *args, **kwargs: {
+            "ok": True,
+            "lines": ["Spreadtrum/Unisoc engine: yes"],
+            "duration": 0.1,
+        }
         self.addCleanup(setattr, selfcheck, "run", original)
 
         page._refresh_paths()

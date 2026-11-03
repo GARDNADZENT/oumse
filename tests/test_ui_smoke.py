@@ -200,7 +200,7 @@ class UiSmokeTests(unittest.TestCase):
         boot = self.app._pages["bootloader"]
         boot._seccfg("unlock")
         self._settle()
-        self.assertIn("seccfg", [call[0] for call in self.session.calls])
+        self.assertNotIn("seccfg", [call[0] for call in self.session.calls])
 
         adb = self.app._pages["adb"]
         adb._run_shell()

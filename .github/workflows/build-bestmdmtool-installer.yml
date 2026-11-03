@@ -59,7 +59,7 @@ jobs:
           if (-not $json.runner_exists) { throw "service_runner.py missing from the bundle" }
           if (-not $json.python_exists) { throw "Bundled runtime Python missing" }
           if (-not $json.usb_ok) {
-            throw "USB libraries missing from the GUI bundle (pyusb/pyserial): $($json.usb_interfaces | ConvertTo-Json -Compress)"
+            throw "USB libraries or libusb backend missing from GUI bundle: $($json.usb_interfaces | ConvertTo-Json -Compress) $($json.usb_backend_error)"
           }
           foreach ($page in @("dashboard", "partitions", "flasher", "advanced", "bootloader", "adb", "settings", "about")) {
             if ($json.pages -notcontains $page) { throw "UI page missing from bundle: $page" }
@@ -87,12 +87,12 @@ jobs:
             Write-Output "::error::Runner backend self-test reported failure: $detail"
             throw "Runner backend self-test reported failure"
           }
-          if (-not $json.mtkclient) { throw "mtkclient missing from the runner bundle" }
+          if (-not $json.spd_engine) { throw "Spreadtrum/Unisoc engine missing from runner bundle" }
+          if (-not $json.pyusb_available -or -not $json.pyserial_available) { throw "pyusb/pyserial missing from runner bundle" }
           if (-not $json.libusb_backend) {
             Write-Output "::error::libusb backend could not be loaded: $detail"
             throw "libusb backend could not be loaded (missing DLL)"
           }
-          if (-not $json.da_v5) { throw "MTK_DA_V5.bin not reachable from the runner" }
 
       - name: Self-test the Spreadtrum/Unisoc engine
         shell: pwsh
@@ -118,32 +118,24 @@ jobs:
           }
           if ($json.operations -notcontains "pac_flash") { throw "SPD runner is missing the pac_flash operation" }
 
-      - name: Prove the installed layout finds its own runtime
+      - name: Prove the installed runner finds its own USB DLL
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
           try {
-            # The step above runs from the build tree with BESTMDMTOOL_ROOT set.
-            # This reproduces the real install layout - {app}\runtime\runner and
-            # {app}\runtime\lib - with no environment help at all.
             $app = Join-Path $env:TEMP "bestmdmtool-install"
             if (Test-Path $app) { Remove-Item -Recurse -Force $app }
             $runner = Join-Path $app "runtime\runner"
-            $loader = Join-Path $app "runtime\lib\mtkclient\Loader"
-            New-Item -ItemType Directory -Force -Path $runner, $loader | Out-Null
+            New-Item -ItemType Directory -Force -Path $runner | Out-Null
             Copy-Item -Path "installer-bestmdmtool/frozen/BestMDMToolRunner/*" -Destination $runner -Recurse -Force
-            Copy-Item -Path "runtime/lib/mtkclient/Loader/MTK_DA_V*.bin" -Destination $loader -Force
 
             Remove-Item Env:BESTMDMTOOL_ROOT -ErrorAction SilentlyContinue
             Remove-Item Env:OUMSE_ROOT -ErrorAction SilentlyContinue
             Remove-Item Env:SVC_ROOT -ErrorAction SilentlyContinue
             Remove-Item Env:SVC_RUNNER_EXE -ErrorAction SilentlyContinue
 
-            $exe = Join-Path $app "runtime\runner\BestMDMToolRunner.exe"
+            $exe = Join-Path $runner "BestMDMToolRunner.exe"
             if (-not (Test-Path $exe)) { throw "Runner copy failed: $exe" }
-            Write-Host "Installed-layout runner: $exe"
-            Get-ChildItem $runner | Select-Object -First 12 Name | Format-Table | Out-String | Write-Host
-
             $report = Join-Path $env:TEMP "bestmdmtool-installed-selftest.json"
             if (Test-Path $report) { Remove-Item -Force $report }
             $proc = Start-Process -FilePath $exe -ArgumentList @("--selftest", "`"$report`"") -Wait -PassThru -NoNewWindow
@@ -151,29 +143,30 @@ jobs:
             $raw = Get-Content $report -Raw
             $json = $raw | ConvertFrom-Json
             Write-Host $raw
-            $detail = $raw -replace "`r?`n", " "
-            if ($detail.Length -gt 1200) { $detail = $detail.Substring(0, 1200) }
+            if ($proc.ExitCode -ne 0 -or -not $json.ok) { throw "Installed runner self-test failed: $raw" }
 
-            if ($proc.ExitCode -ne 0 -or -not $json.ok) {
-              Write-Output "::error::Installed layout self-test failed: $detail"
-              throw "Installed layout self-test failed (exit $($proc.ExitCode))"
+            $expected = [System.IO.Path]::GetFullPath($runner)
+            $resolved = if ($json.runner_dir) { [System.IO.Path]::GetFullPath($json.runner_dir) } else { "" }
+            if (-not $resolved -or $resolved -ne $expected) {
+              throw "Runner resolved an unexpected executable directory: '$resolved' vs '$expected'"
             }
-            $expected = [System.IO.Path]::GetFullPath($app)
-            $resolved = if ($json.runtime_lib) { [System.IO.Path]::GetFullPath($json.runtime_lib) } else { "" }
-            Write-Host "Expected runtime/lib root: $expected"
-            Write-Host "Runner reported          : $resolved"
-            if (-not $resolved -or -not $resolved.StartsWith($expected, [System.StringComparison]::OrdinalIgnoreCase)) {
-              Write-Output "::error::Runner resolved runtime/lib outside the install: '$resolved' vs '$expected' | $detail"
-              throw "Runner resolved runtime/lib outside the install: '$resolved' vs '$expected'"
-            }
-            if (-not $json.libusb_backend) {
-              Write-Output "::error::Installed layout lost the libusb backend: $detail"
-              throw "Installed layout lost the libusb backend"
-            }
-            Write-Host "Installed layout OK: runtime/lib resolved to $($json.runtime_lib)" -ForegroundColor Green
+            if (-not $json.libusb_backend) { throw "Installed layout lost the libusb backend" }
+            Write-Host "Installed runner layout OK: $resolved" -ForegroundColor Green
           } catch {
             Write-Output "::error::Installed-layout check threw: $($_.Exception.Message)"
             throw
+          }
+
+      - name: Verify MediaTek runner fails closed
+        shell: pwsh
+        run: |
+          $exe = "installer-bestmdmtool/frozen/BestMDMToolRunner/BestMDMToolRunner.exe"
+          $out = & $exe 2>&1
+          $code = $LASTEXITCODE
+          $text = $out -join "`n"
+          Write-Host $text
+          if ($code -eq 0 -or $text -notmatch "mtk_temporarily_disabled_security_review") {
+            throw "MediaTek runner did not fail closed before device access"
           }
 
       - name: Verify installer
@@ -232,8 +225,8 @@ jobs:
             **BestMDMTool** from the Start Menu.
 
             Requirements: Windows 10/11. No Python install is needed — the GUI and
-            the device backend are frozen bundles, and CI proves the backend can
-            import mtkclient, load libusb and reach the DA loaders before publishing.
+            the Spreadtrum/Unisoc device backend are frozen bundles. MediaTek
+            sessions are disabled pending a security review.
 
             Verify the download with `SHA256SUMS.txt`. The installer is unsigned, so
             SmartScreen shows *More info -> Run anyway* on first launch.

@@ -39,7 +39,8 @@ class Controller:
         self.busy = False
         self.last_progress = 0
         self._start_error = ""
-        self.engine = "mtk"
+        self._connect_lock = threading.Lock()
+        self.engine = "auto"
 
         self._log = log
         self._on_device = on_device
@@ -93,6 +94,8 @@ class Controller:
         """
 
         requested = (requested or "auto").strip().lower()
+        if requested.startswith("mtk"):
+            requested = "mtk"
         try:
             report = scan_report()
         except Exception as exc:  # a broken USB stack must not block connecting
@@ -110,14 +113,11 @@ class Controller:
                     "INFO",
                 )
                 return detected
-            if not report.get("relevant"):
-                self.log(
-                    "Engine: auto -> MTK. No download-mode phone detected yet; the MediaTek "
-                    "engine also handles PreLoader devices.",
-                    "INFO",
-                )
-                return "mtk"
-            return "mtk"
+            self.log(
+                "Engine: auto -> none. No supported download-mode phone is visible; no device runner will start.",
+                "INFO",
+            )
+            return "none"
 
         if detected and detected != requested:
             self.log(
@@ -145,9 +145,25 @@ class Controller:
             self.log("A device session is already open.", "WARN")
             return
 
+        if not self._connect_lock.acquire(blocking=False):
+            self.log("A connection attempt is already in progress.", "WARN")
+            return
+
         def _work() -> bool:
             requested = (engine or "auto").strip().lower()
             self.engine = self._resolve_engine(requested)
+            if self.engine == "none":
+                self._start_error = "no_download_mode_device"
+                self.log("No supported download-mode device found; no runner was started.", "WARN")
+                return False
+            if self.engine == "mtk":
+                self._start_error = "mtk_temporarily_disabled_security_review"
+                self.log(
+                    "MediaTek sessions are temporarily disabled for a security review. "
+                    "No runner was started and no device commands were sent.",
+                    "WARN",
+                )
+                return False
             label = "Spreadtrum BSL" if self.engine == "spd" else mode.upper()
             detail = spd_transport if self.engine == "spd" else transport
             self.log("Opening %s session (transport: %s)..." % (label, detail), "STEP")
@@ -201,6 +217,7 @@ class Controller:
             return True
 
         def _done(ok: Any) -> None:
+            self._connect_lock.release()
             if ok:
                 if self.partitions:
                     self.log("Device connected. %d partitions found." % len(self.partitions), "OK")
@@ -212,7 +229,17 @@ class Controller:
                     "Connection failed: %s" % getattr(self, "_start_error", "unknown error"),
                     "ERROR",
                 )
-                if self.engine == "spd":
+                if self._start_error == "no_download_mode_device":
+                    self.log(
+                        "Connect a device in its supported download mode, or choose SPD explicitly for an SPD device.",
+                        "WARN",
+                    )
+                elif "mtk_temporarily_disabled_security_review" in self._start_error:
+                    self.log(
+                        "MediaTek sessions are temporarily disabled: the bundled backend needs a security review.",
+                        "WARN",
+                    )
+                elif self.engine == "spd":
                     self.log(
                         "Check the USB cable and the SPD/Unisoc driver, and that the phone is in "
                         "download mode (usually Volume- held while plugging in).",
@@ -261,13 +288,13 @@ class Controller:
         """Print a USB scan the way a technician reads it: facts, then advice."""
 
         sources = report.get("sources") or {}
+        if sources.get("pyusb"):
+            pyusb = "module yes / libusb backend %s" % ("available" if sources.get("libusb") else "unavailable")
+        else:
+            pyusb = "module no"
         self.log(
             "USB check — pyusb: %s · device tree: %s · serial: %s"
-            % (
-                "yes" if sources.get("pyusb") else "no",
-                "yes" if sources.get("pnp") else "no",
-                "yes" if sources.get("serial") else "no",
-            ),
+            % (pyusb, "yes" if sources.get("pnp") else "no", "yes" if sources.get("serial") else "no"),
             "DEBUG",
         )
         for name, message in (report.get("errors") or {}).items():
@@ -335,8 +362,8 @@ class Controller:
             if adb:
                 self.log("ADB sees: %s" % ", ".join(adb), "INFO")
                 self.log(
-                    "The phone answers ADB, so it is booted into Android. Power it off before "
-                    "trying a BROM/BSL connection.",
+                    "An ADB device is booted into Android; it may be a different device from the "
+                    "download-mode port above.",
                     "WARN",
                 )
             elif report.get("verdict") == "nothing":

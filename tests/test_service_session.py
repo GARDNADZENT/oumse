@@ -113,9 +113,10 @@ class RunnerSourceTests(unittest.TestCase):
             with self.subTest(op=op):
                 self.assertIn('"%s": op_' % op, self.source)
 
-    def test_runner_reuses_field_tested_serial_patches(self) -> None:
-        self.assertIn("oumse_brom_session_runner", self.source)
-        self.assertIn("COMPAT_PATCHES", self.source)
+    def test_mtk_runner_does_not_import_legacy_device_backend(self) -> None:
+        self.assertNotIn("oumse_brom_session_runner", self.source)
+        self.assertNotIn("from mtkclient", self.source)
+        self.assertIn("mtk_temporarily_disabled_security_review", self.source)
 
     def test_runner_has_no_network_or_login_logic(self) -> None:
         for token in ("/api/", "heartbeat", "socket", "requests", "urllib", "_show_login"):
@@ -125,7 +126,7 @@ class RunnerSourceTests(unittest.TestCase):
     def test_dangerous_ops_require_explicit_arguments(self) -> None:
         self.assertIn('missing_args', self.source)
         self.assertIn('no_such_partition', self.source)
-        self.assertIn('state_must_be_unlock_or_lock', self.source)
+        self.assertIn('unavailable_security_policy', self.source)
 
 
 if __name__ == "__main__":

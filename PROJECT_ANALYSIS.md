@@ -1,5 +1,10 @@
 # Oumse GSM Tool Pro — Project Analysis
 
+> **Current BestMDMTool safety state (2026-11-03):** v0.5.2 has been withdrawn after a field
+> log showed an automatic MediaTek security-bypass path and a failed userdata format reported as
+> complete. BestMDMTool v0.5.3 disables MTK sessions and does not package the MTK backend/loaders;
+> only SPD/Unisoc operations remain enabled. See `SECURITY.md` and `GET_BESTMDMTOOL.md`.
+
 > **Remediation status (2026-10-27):** A no-login front-end now lives in `app/` and is launched by `START_NO_LOGIN.bat`. A second independent product, `bestmdmtool/`, was added with its own launcher and installer; both apps share `servicecore/`. Committed logs, device identifiers, duplicate/wrapper executables, and installer artifacts were removed; the legacy compiled client was moved to `legacy/`. `.gitignore`, `SECURITY.md`, CI, unit tests, and reproducible installer projects were added. The original findings below remain for context; see `README.md`, `SECURITY.md`, `installer/README.md`, `bestmdmtool/README.md`, and `installer-bestmdmtool/README.md` for the current state.
 
 _Static analysis performed on 2026-10-27. The Windows executables were not run: this environment is Linux and the tool requires physical MediaTek/Spreadtrum devices, Windows USB drivers, and BROM/preloader access._

@@ -167,17 +167,39 @@ class ConnectWiringTests(unittest.TestCase):
         self.assertEqual(seen["args"], ["--engine", "spd"])
         self.assertEqual(Path(seen["cwd"]), config.work_dir())
 
-    def test_frozen_mtk_session_gets_no_engine_flag(self) -> None:
-        mtk = _device(0x0E8D, 0x0003, name="MediaTek USB Port", service="wdm_usb", port="COM32")
-        argv = ["/fake/BestMDMToolRunner.exe"]
-        seen = self._connect("auto", [mtk], argv)
-        self.assertEqual(seen["args"], [])
+    def test_auto_without_a_download_device_never_starts_a_runner(self) -> None:
+        seen = self._connect("auto", [], ["/fake/BestMDMToolRunner.exe"])
+        self.assertEqual(self.controller.engine, "none")
+        self.assertEqual(seen, {})
+        self.assertEqual(self.controller._start_error, "no_download_mode_device")
 
-    def test_engine_mismatch_is_corrected_before_launch(self) -> None:
+    def test_mtk_session_is_blocked_before_any_runner_starts(self) -> None:
+        mtk = _device(0x0E8D, 0x0003, name="MediaTek USB Port", service="wdm_usb", port="COM32")
+        seen = self._connect("auto", [mtk], ["/fake/BestMDMToolRunner.exe"])
+        self.assertEqual(self.controller.engine, "mtk")
+        self.assertEqual(seen, {})
+        self.assertIn("mtk_temporarily_disabled_security_review", self.controller._start_error)
+        self.assertTrue(any("No runner was started" in message for _level, message in self.logs))
+
+    def test_usb_report_distinguishes_pyusb_from_libusb_backend(self) -> None:
+        self.controller._log_report(
+            {
+                "sources": {"pyusb": True, "libusb": False, "pnp": True, "serial": True},
+                "errors": {"pyusb": "NoBackendError: No backend available"},
+                "devices": [],
+                "verdict": "backend",
+                "detail": "backend unavailable",
+                "steps": [],
+            }
+        )
+        self.assertTrue(any("module yes / libusb backend unavailable" in text for _level, text in self.logs))
+
+    def test_engine_mismatch_is_corrected_then_mtk_is_blocked(self) -> None:
         mtk = _device(0x0E8D, 0x0003, name="MediaTek USB Port", service="wdm_usb", port="COM32")
         seen = self._connect("spd", [mtk], ["/fake/BestMDMToolRunner.exe"])
         self.assertEqual(self.controller.engine, "mtk")
-        self.assertEqual(seen["args"], [])
+        self.assertEqual(seen, {})
+        self.assertIn("mtk_temporarily_disabled_security_review", self.controller._start_error)
         self.assertTrue(any("Switching to MTK" in message for _level, message in self.logs))
 
 
@@ -239,8 +261,8 @@ class EngineChoiceTests(unittest.TestCase):
         mtk = _device(0x0E8D, 0x0003, name="MediaTek USB Port", service="wdm_usb", port="COM32")
         self.assertEqual(self._resolve("auto", [mtk]), "mtk")
 
-    def test_auto_defaults_to_mediatek_without_hardware(self) -> None:
-        self.assertEqual(self._resolve("auto", []), "mtk")
+    def test_auto_does_not_launch_an_engine_without_download_mode_hardware(self) -> None:
+        self.assertEqual(self._resolve("auto", []), "none")
 
     def test_explicit_spd_is_overridden_by_mediatek_hardware(self) -> None:
         """The 0.5.1 field case: SPD selected, MediaTek phone plugged in."""
@@ -263,9 +285,9 @@ class EngineChoiceTests(unittest.TestCase):
             self.assertEqual(self.controller._resolve_engine("spd"), "spd")
         self.assertTrue(any("USB pre-check failed" in message for _level, message in self.logs))
 
-    def test_an_android_mode_phone_does_not_force_spd(self) -> None:
+    def test_an_android_mode_phone_does_not_start_a_download_runner(self) -> None:
         phone = _device(0x2D95, 0x6002, name="Y04", service="WUDFWpdMtp")
-        self.assertEqual(self._resolve("auto", [phone]), "mtk")
+        self.assertEqual(self._resolve("auto", [phone]), "none")
 
 
 class InterfaceCheckTests(unittest.TestCase):
@@ -279,6 +301,49 @@ class InterfaceCheckTests(unittest.TestCase):
         self.assertTrue(status["pyusb"])
         self.assertEqual(status["pyusb_error"], "")
         self.assertEqual(status["libusb"], "available")
+
+    def test_frozen_windows_uses_the_dll_beside_the_executable(self) -> None:
+        import types
+
+        temp = Path(tempfile.mkdtemp())
+        exe = temp / "BestMDMTool.exe"
+        exe.write_bytes(b"")
+        dll = temp / "libusb-1.0.dll"
+        dll.write_bytes(b"dll")
+        seen: dict[str, object] = {}
+        backend_obj = object()
+        core = types.ModuleType("usb.core")
+
+        def find(**kwargs):
+            seen.update(kwargs)
+            return []
+
+        core.find = find
+        usb = types.ModuleType("usb")
+        usb.__path__ = []
+        backend_pkg = types.ModuleType("usb.backend")
+        backend_pkg.__path__ = []
+        libusb1 = types.ModuleType("usb.backend.libusb1")
+
+        def get_backend(*, find_library):
+            seen["dll"] = find_library("libusb-1.0.dll")
+            return backend_obj
+
+        libusb1.get_backend = get_backend
+        backend_pkg.libusb1 = libusb1
+        usb.core = core
+        usb.backend = backend_pkg
+        modules = {"usb": usb, "usb.core": core, "usb.backend": backend_pkg, "usb.backend.libusb1": libusb1}
+        with mock.patch.dict(sys.modules, modules), mock.patch.object(
+            usbscan.sys, "platform", "win32"
+        ), mock.patch.object(usbscan.sys, "executable", str(exe)), mock.patch.object(
+            usbscan.sys, "frozen", True, create=True
+        ):
+            status = usbscan.interface_status()
+        self.assertEqual(seen["dll"], str(dll))
+        self.assertIs(seen["backend"], backend_obj)
+        self.assertEqual(status["libusb"], "available")
+        self.assertEqual(status["pyusb_error"], "")
 
     def test_a_real_backend_failure_is_reported(self) -> None:
         def boom(**kwargs):
@@ -341,9 +406,9 @@ class DoctorVerdictTests(unittest.TestCase):
         report.verdict, report.detail, report.steps = usbscan._verdict(report)
         self.assertEqual(report.verdict, "android")
         self.assertIn("WUDFWpdMtp", report.detail)
-        self.assertTrue(any("power off" in step.lower() for step in report.steps))
+        self.assertTrue(any("different phone" in step.lower() for step in report.steps))
 
-    def test_mediatek_download_mode_recommends_usbdk(self) -> None:
+    def test_mediatek_download_mode_does_not_claim_openability(self) -> None:
         report = usbscan.UsbReport(
             devices=[_device(0x0E8D, 0x0003, name="MediaTek USB Port", service="wdm_usb", port="COM32")],
             relevant=[_device(0x0E8D, 0x0003, name="MediaTek USB Port", service="wdm_usb", port="COM32")],
@@ -351,7 +416,8 @@ class DoctorVerdictTests(unittest.TestCase):
         )
         report.verdict, report.detail, report.steps = usbscan._verdict(report)
         self.assertEqual(report.verdict, "download")
-        self.assertTrue(any("UsbDk" in step for step in report.steps))
+        self.assertTrue(any("sessions pending a security review" in step for step in report.steps))
+        self.assertFalse(any("Press Connect" in step for step in report.steps))
 
 
 if __name__ == "__main__":

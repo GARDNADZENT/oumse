@@ -186,6 +186,25 @@ def pnp_devices() -> list[UsbDevice]:
     return found
 
 
+def _usb_find_all():
+    """Enumerate using the bundled DLL explicitly in frozen Windows builds."""
+    import usb.core  # noqa: PLC0415
+
+    if sys.platform == "win32" and getattr(sys, "frozen", False):
+        from pathlib import Path  # noqa: PLC0415
+
+        import usb.backend.libusb1  # noqa: PLC0415
+
+        dll = Path(sys.executable).resolve().parent / "libusb-1.0.dll"
+        if not dll.is_file():
+            raise RuntimeError("Bundled libusb DLL missing: %s" % dll)
+        backend = usb.backend.libusb1.get_backend(find_library=lambda _: str(dll))
+        if backend is None:
+            raise RuntimeError("Cannot load bundled libusb DLL: %s" % dll)
+        return list(usb.core.find(find_all=True, backend=backend) or [])
+    return list(usb.core.find(find_all=True) or [])
+
+
 def pyusb_devices() -> list[UsbDevice]:
     """List USB devices through pyusb (needs libusb on Windows)."""
 
@@ -194,7 +213,7 @@ def pyusb_devices() -> list[UsbDevice]:
     except Exception:
         return []
     try:
-        raw = list(usb.core.find(find_all=True) or [])
+        raw = _usb_find_all()
     except Exception:
         return []
     found: list[UsbDevice] = []
@@ -258,14 +277,14 @@ def interface_status() -> dict[str, object]:
 
     status: dict[str, object] = {"platform": sys.platform, "windows": os.name == "nt"}
     try:
-        import usb.core  # noqa: PLC0415 - optional dependency
+        import usb.core  # noqa: F401, PLC0415 - optional dependency
 
         status["pyusb"] = True
         status["pyusb_error"] = ""
         # The only reliable backend check is a real enumeration: pyusb exposes
         # no stable "backend" attribute, so probing for one is a false alarm.
         try:
-            found = list(usb.core.find(find_all=True) or [])
+            found = _usb_find_all()
             status["libusb"] = "available"
             status["pyusb_devices"] = len(found)
         except Exception as exc:
@@ -295,6 +314,7 @@ def scan() -> UsbReport:
     status = interface_status()
     report.sources = {
         "pyusb": bool(status.get("pyusb")),
+        "libusb": status.get("libusb") == "available",
         "pnp": os.name == "nt",
         "serial": bool(status.get("pyserial")),
     }
@@ -364,22 +384,31 @@ def _verdict(report: UsbReport) -> tuple[str, str, list[str]]:
     booted = [device for device in report.devices if _is_phone_interface(device)]
     if booted:
         device = booted[0]
+        if device.vid == MTK_VID:
+            steps = ["MediaTek sessions are disabled in this release; no MTK commands will be sent."]
+        elif device.vid == SPD_VID:
+            steps = ["Power the phone off, then use its SPD/Unisoc download key sequence."]
+        else:
+            steps = [
+                "This Android/WPD interface may be a different phone from any download-mode port listed above.",
+                "Select the intended supported device in the USB list before proceeding.",
+            ]
         return (
             "android",
-            "The phone is connected and booted into Android (%s, %s, driver %s), so no download "
-            "mode is open."
+            "A phone-like interface is visible (%s, %s, driver %s); it may not be the same device as "
+            "a download-mode port above."
             % (device.name or device.usb_id, device.usb_id, device.service or "unknown"),
-            [
-                "MediaTek: power off, then hold Volume- (or Volume+ and Volume-) while plugging in.",
-                "Spreadtrum: power off, then hold Volume- while plugging in.",
-                "The screen must stay black; Windows re-detects the phone within a second or two.",
-                "If Windows shows an unknown device with a yellow mark, install the vendor USB driver.",
-            ],
+            steps,
         )
 
     known_vendor = report.relevant
     if known_vendor:
         device = known_vendor[0]
+        steps = (
+            ["MediaTek sessions are disabled in this release; no driver change or MTK command is recommended."]
+            if device.vid == MTK_VID
+            else _download_mode_steps(device)
+        )
         return (
             "present_not_download",
             "A %s device is plugged in (%s, %s) but it is not in a download mode."
@@ -388,7 +417,7 @@ def _verdict(report: UsbReport) -> tuple[str, str, list[str]]:
                 device.usb_id,
                 device.name or "unnamed",
             ),
-            _download_mode_steps(device),
+            steps,
         )
 
     android = [device for device in report.devices if "android" in device.name.lower() or "adb" in device.name.lower()]
@@ -398,10 +427,8 @@ def _verdict(report: UsbReport) -> tuple[str, str, list[str]]:
             "The phone is in normal Android mode (%s), so BROM/BSL is not exposed yet."
             % (android[0].name or android[0].usb_id),
             [
-                "Power the phone off completely.",
-                "MediaTek: hold Volume- (or Volume+ and Volume-) while plugging the USB cable in.",
-                "Spreadtrum: hold Volume- and plug in; the screen stays black when it works.",
-                "Windows should chime and Device Manager should show a new port or a yellow warning icon.",
+                "This Android interface may be a different phone from the download-mode port you intend to service.",
+                "Use the documented BSL sequence only for an SPD/Unisoc device; MediaTek sessions are disabled here.",
             ],
         )
 
@@ -446,24 +473,20 @@ def _driver_steps(device: UsbDevice) -> list[str]:
             "Device Manager reports a problem code %s: install the driver before connecting."
             % device.problem
         )
-    if device.vid == MTK_VID and not device.openable:
+    if device.vid == MTK_VID:
         steps.append(
-            "MediaTek BROM needs UsbDk (or WinUSB/libusbK bound to the port). Install the UsbDk "
-            "driver, reconnect the phone, then press Connect."
+            "MediaTek hardware is visible, but this release disables MTK sessions pending a security review. "
+            "No runner or device command will be started."
         )
-    if device.vid == SPD_VID and device.port and not device.openable:
-        # Spreadtrum phones answer on a COM port, so the driver is fine as-is.
+    elif device.vid == SPD_VID and device.port:
         steps.append(
-            "This phone is on %s. In Settings set SPD transport to 'serial' and SPD port to %s, "
-            "then press Connect." % (device.port, device.port)
+            "This phone is on %s. In Settings set SPD transport to 'serial' and SPD port to %s."
+            % (device.port, device.port)
         )
     elif device.service and not device.openable:
-        steps.append(
-            "The bound driver (%s) cannot be opened by the USB transport. Bind WinUSB or libusbK "
-            "to it (Device Manager -> Update driver -> Browse -> Let me pick -> WinUSB), then "
-            "reconnect." % device.service
-        )
-    steps.append("Press Connect in the title bar.")
+        steps.append("The bound driver is %s; USB access has not been verified." % device.service)
+    if device.vid != MTK_VID:
+        steps.append("Press Connect in the title bar.")
     return steps
 
 

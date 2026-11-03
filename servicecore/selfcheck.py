@@ -18,8 +18,8 @@ from typing import Any
 
 from .config import selfcheck_command
 
-#: Report keys that must be true for the device layer to be usable.
-REQUIRED_KEYS = ("ok", "mtkclient", "libusb_backend")
+#: Capabilities required for the currently supported SPD device path.
+REQUIRED_KEYS = ("ok", "spd_engine", "pyusb_available", "pyserial_available", "libusb_backend")
 
 
 def _summarise(report: dict[str, Any]) -> list[str]:
@@ -28,21 +28,20 @@ def _summarise(report: dict[str, Any]) -> list[str]:
     version = str(report.get("python") or "?").split()[0]
     kind = "frozen" if report.get("frozen") else "source"
     lines.append("Python %s (%s)" % (version, kind))
-    lines.append("mtkclient: %s" % ("yes" if report.get("mtkclient") else "NO"))
+    mtk_status = "available" if report.get("mtk_available") else "disabled pending security review"
+    lines.append("MediaTek engine: %s" % mtk_status)
+    lines.append("Spreadtrum/Unisoc engine: %s" % ("yes" if report.get("spd_engine") else "NO"))
+    lines.append("pyusb: %s · pyserial: %s" % (
+        "yes" if report.get("pyusb_available") else "NO",
+        "yes" if report.get("pyserial_available") else "NO",
+    ))
     backend = "yes" if report.get("libusb_backend") else "NO"
     dll = report.get("libusb_dll")
     lines.append("libusb backend: %s%s" % (backend, " (%s)" % dll if dll else ""))
-    lines.append(
-        "DA loaders: v5 %s, v6 %s"
-        % ("yes" if report.get("da_v5") else "NO", "yes" if report.get("da_v6") else "NO")
-    )
     lines.append("USB devices visible: %s" % report.get("usb_devices", "?"))
-    lib = report.get("runtime_lib")
-    if lib:
-        lines.append("runtime/lib: %s" % lib)
     operations = report.get("operations") or []
     if operations:
-        lines.append("operations: %d" % len(operations))
+        lines.append("SPD operations: %d" % len(operations))
     error = report.get("error")
     if error:
         tail = [line for line in str(error).strip().splitlines() if line.strip()][-3:]
@@ -128,16 +127,16 @@ def is_healthy(report: dict[str, Any]) -> bool:
 
 def describe_failure(report: dict[str, Any]) -> str:
     """Return one actionable sentence explaining a failed self-test."""
-    if not report.get("mtkclient"):
-        return "the runner cannot import mtkclient (incomplete device backend)"
+    if not report.get("spd_engine"):
+        return "the Spreadtrum/Unisoc engine could not be loaded"
+    if not report.get("pyusb_available") or not report.get("pyserial_available"):
+        return "pyusb or pyserial is missing from the device runner"
     if not report.get("libusb_backend"):
         return "the libusb backend did not load (missing libusb DLL)"
-    if not report.get("da_v5"):
-        return "the DA loader files are missing from runtime\\lib"
     if report.get("error"):
         first = str(report["error"]).strip().splitlines()[0]
         return first[:300]
-    return "the device backend reported a problem"
+    return "the USB runtime reported a problem"
 
 
 def environment_hint() -> str:

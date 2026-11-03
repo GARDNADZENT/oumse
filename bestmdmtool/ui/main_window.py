@@ -911,9 +911,14 @@ class MainWindow(tk.Tk):
     def _update_session_card(self) -> None:
         settings = self.controller.settings
         chosen = str(getattr(settings, "engine", "auto") or "auto").lower()
-        # "auto" resolves per device, so show the engine actually in use.
+        # MTK is recognized but disabled; never imply that it is connected.
         resolved = str(getattr(self.controller, "engine", "") or "").lower()
-        engine = (chosen if chosen in ("mtk", "spd") else (resolved or "auto")).upper()
+        if chosen == "mtk" or resolved == "mtk":
+            engine = "MTK OFF"
+        elif chosen == "spd" or resolved == "spd":
+            engine = "SPD"
+        else:
+            engine = "AUTO"
         device = self.controller.device or {}
         chip = str(device.get("chip") or "")
         parts = len(self.controller.partitions or [])

@@ -1,3 +1,9 @@
+> **Critical safety advisory — v0.5.2 is withdrawn.** Its MediaTek path invoked security-bypass
+> code automatically and patched the Download Agent. A failed userdata format was then reported
+> as successful. The phone's current data state is unknown. Do not retry erase/flash operations.
+> v0.5.3 disables MediaTek sessions before any runner starts and removes the MTK backend/loaders
+> from the BestMDMTool installer. Use SPD/Unisoc only until MTK has been independently reviewed.
+
 # Get BestMDMTool
 
 BestMDMTool is a **separate, no-login** app in this repository. It opens
@@ -5,8 +11,9 @@ straight to a full device workspace — no account, no server, no remote service
 
 The window is a three-column workspace like the OumseGSM tool: the tool list on
 the left, the operations for the chosen tool in the middle, and the live page
-with its action strip and console on the right. It drives both **MediaTek**
-(BROM/DA, mtkclient) and **Spreadtrum/Unisoc** (BSL/FDL) phones, and the
+with its action strip and console on the right. The current safe installer
+supports **Spreadtrum/Unisoc** (BSL/FDL) device operations. MediaTek USB detection
+remains, but MTK sessions are disabled pending independent security review. The
 interface switches between English, French, Portuguese and Arabic.
 
 > Use only on devices you own or are explicitly authorized to service.
@@ -65,43 +72,49 @@ the activity log, `F5` refreshes the partition table.
 so a typo such as `self._toggle_log()` (silently swallowed before) fails the
 build instead of the user.
 
-## What's new in 0.5.2 — the two bugs your log exposed
+## What's new in 0.5.3 — safety correction from your field log
 
-Your 0.5.1 log was gold. It showed a **MediaTek** phone (`0E8D:0003`, HW code
-0x699, driver `wdm_usb`) while the app said *"Opening Spreadtrum BSL session"* —
-and then printed mtkclient's PreLoader trace, ending in
-`Permission denied: '.hwparam.json'`.
+Your 0.5.2 log showed `SBC enabled: True`, `DAA enabled: True`, then
+`Device is in BROM-Mode. Bypassing security`, `Kamakiri Run`, and messages saying
+security checks and the DA had been patched. That is not acceptable for this
+product. I am sorry: my earlier advice to install UsbDk or bind WinUSB was not
+an appropriate response to that log.
 
-| Bug | Cause | Fix |
-| --- | --- | --- |
-| SPD session ran the MediaTek engine | the frozen `BestMDMToolRunner.exe` gets its engine from `--engine`, but the client never passed the argument | runner arguments are forwarded; the engine now actually reaches the process |
-| `.hwparam.json` permission denied | the runner's working directory was `C:\Program Files\BestMDMTool\runtime\runner`, which is read-only | runners start in `%LOCALAPPDATA%\BestMDMTool\work` |
-| *"libusb backend could not enumerate"* on a working install | the check probed `usb.core.backend`, an attribute pyusb does not have | the check now just enumerates; failures are real failures |
-| *"The phone answers ADB"* when no phone was connected | adb's own `* daemon not running` lines were parsed as devices | daemon lines are ignored |
+The same log showed an `Exceed available range` error while formatting
+`userdata`, but the app still printed **"Erase complete"**. That happened
+because the runner called a helper that returned no success value and ignored
+the individual format result. The userdata operation may have partially
+completed. Its current state cannot be confirmed from this log; do not repeat
+erase, write, or flash operations on that phone.
 
-**Chip family is now `auto` by default.** It looks at USB and opens the engine
-that matches the phone. If you force `spd` while a MediaTek phone is plugged in,
-the tool says so and uses the MediaTek engine instead of failing with a
-misleading driver message.
+| v0.5.3 change | What it does |
+| --- | --- |
+| Fail closed for MTK | The GUI refuses before starting the runner; the frozen runner also emits a refusal before opening USB. |
+| MTK backend removed from installer | No mtkclient package, DA loader, or legacy Oumse runner is included. Upgrading v0.5.2 also removes its old MTK files and `hwparam.json`, while preserving the prior log folder. |
+| Erase results checked | The runner checks the exact format result and partition range; partial/failing operations return `SVC_FAIL`, never `SVC_OK`. |
+| Read/dump results checked | Empty GPT and incomplete output are failures, not successful empty/partial results. |
+| USB doctor corrected | pyusb import and the libusb backend are reported separately; no driver replacement is recommended based only on enumeration. |
+| Multiple devices handled honestly | ADB and a MediaTek COM port can belong to different interfaces/devices; the doctor no longer assumes they are the same phone. |
+| Seccfg disabled | Unlock/re-lock buttons are visibly disabled under the safety policy. |
 
-### Your phone needs UsbDk (MediaTek BROM)
+The SPD/Unisoc BSL/FDL engine remains available. The MTK selector stays visible
+for layout continuity but is labelled **temporarily disabled**. Choosing `auto`
+with no recognizable download-mode device will not launch an MTK runner.
 
-`0E8D:0003` bound to `wdm_usb` is MediaTek's VCOM driver. The MediaTek engine
-talks through libusb, so Windows must let libusb reach that port:
+This is a containment release, not a data-recovery tool. Do not use the
+v0.5.2 installer for device work. If the affected phone contains important data,
+stop connecting it to service tools and seek a qualified recovery/service
+provider before attempting any writes.
 
-1. Install **UsbDk** (the driver mtkclient documents) — one-time, works with the
-   MediaTek driver still bound.
-2. Or bind **WinUSB / libusbK** to the BROM port with Zadig.
-3. Then put the phone in BROM mode (powered off, Volume- held while plugging in)
-   and press **Connect**. With `auto` selected you do not have to change any
-   other setting.
+## v0.5.2 — withdrawn
 
-The Connection doctor now names the driver for every device it finds and tells
-you which of these applies.
+v0.5.2 fixed the earlier engine-argument and working-directory bugs, but the
+follow-up log exposed the security-bypass and false-success failures described
+above. It is withdrawn and must not be used for MediaTek work.
 
-## What's new in 0.5.1 — "my phone is connected but the tool sees nothing"
+## v0.5.1 history — USB detection improvements (superseded)
 
-**The real bug:** the installed `BestMDMTool.exe` was built *without* pyusb,
+**Historical fix (superseded by the v0.5.3 safety notice above):** the installed `BestMDMTool.exe` was built *without* pyusb,
 pyserial and libusb. The USB scan therefore failed on every launch and reported
 "no device", whether or not a phone was plugged in. The build now bundles those
 libraries into the GUI executable, and the release is blocked if they are
@@ -131,13 +144,13 @@ just saying "connection failed".
 
 1. Press **Connection doctor** and read the verdict.
 2. `android` → the phone is simply booted. Power it off completely first.
-3. MediaTek: hold **Volume-** (some phones need Volume+ and Volume-, or a test
-   point) while plugging the cable in; the screen stays black.
+3. MediaTek download-mode entry is documented here for historical reference only;
+   the v0.5.3 app will not open an MTK session.
 4. Spreadtrum: hold **Volume-** while plugging in. If Windows binds the phone to
    a COM port, set **Settings → SPD transport = serial** and pick that port.
 5. If Device Manager shows a yellow mark, the USB driver is missing.
 
-## What's new in 0.5.0
+## v0.5.0 history
 
 **The window now looks and behaves like the OumseGSM tool.** Same three-column
 workspace: the tool list on the left, the operations for the chosen tool in the
@@ -188,32 +201,23 @@ that fails verification is refused before anything is written.
 
 ## 1. Download the finished installer (easiest)
 
-**Direct link:**
+**Current safe release:** [BestMDMTool v0.5.3](https://github.com/GARDNADZENT/oumse/releases/tag/v0.5.3)
+(disables MediaTek device sessions; SPD/Unisoc operations only).
 
-<https://github.com/GARDNADZENT/oumse/releases/download/v0.5.2/BestMDMToolSetup-0.5.2.exe>
+Direct installer: [BestMDMToolSetup-0.5.3.exe](https://github.com/GARDNADZENT/oumse/releases/download/v0.5.3/BestMDMToolSetup-0.5.3.exe)
 
-**Release page** (also has `SHA256SUMS.txt`):
-
-<https://github.com/GARDNADZENT/oumse/releases/tag/v0.5.2>
-
-| Item | Value |
-| --- | --- |
-| File | `BestMDMToolSetup-0.5.2.exe` |
-| Size | 68,860,902 bytes (65.7 MiB) |
-| Built by | GitHub Actions, Windows `windows-latest` |
-| SHA-256 | `d5656e5a6cd231af7cce44c5b8635a0db946d80fb9d9e5be14ba73b70334c959` |
-| Signing | **Not signed** — SmartScreen will warn (see below) |
+Installer size and SHA-256: see `SHA256SUMS.txt` on the release page. v0.5.2 is withdrawn;
+do not download or run it for device work.
 
 Install steps:
 
-1. Run `BestMDMToolSetup-0.5.2.exe`.
+1. Run the v0.5.3 installer linked above. It upgrades the existing BestMDMTool install and removes the old MTK backend/runner files.
 2. Because the file is not code-signed, Windows shows
    *"Windows protected your PC"*. Click **More info → Run anyway**.
 3. Finish setup, then launch **BestMDMTool** from the Start Menu.
 4. The app opens directly — no login screen.
-5. Pick the chip family in **Settings** (`mtk` or `spd`), then put the phone
-   in BROM (MediaTek) or BSL/download (Spreadtrum) mode and press
-   **Connect device**.
+5. Use the **SPD/Unisoc** engine for supported device operations. MediaTek
+   sessions are disabled pending a security review.
 
 Python is **not required** on the target PC: the installer ships a standalone
 `BestMDMTool.exe` with its own Python + Tkinter runtime.
@@ -221,12 +225,10 @@ Python is **not required** on the target PC: the installer ships a standalone
 ### Verify the download (optional but recommended)
 
 ```powershell
-Get-FileHash .\BestMDMToolSetup-0.5.2.exe -Algorithm SHA256
+Get-FileHash .\BestMDMToolSetup-0.5.3.exe -Algorithm SHA256
 ```
 
-Compare the output with the contents of `SHA256SUMS.txt` on the release page.
-The 0.5.2 installer hashes to
-`d5656e5a6cd231af7cce44c5b8635a0db946d80fb9d9e5be14ba73b70334c959`.
+Compare the output with the contents of `SHA256SUMS.txt` on the v0.5.3 release page.
 
 ---
 
@@ -272,7 +274,7 @@ The script:
 2. installs Inno Setup 6 automatically if `ISCC.exe` is missing (winget, then a
    direct download);
 3. compiles the installer to
-   `installer-bestmdmtool\artifacts\BestMDMToolSetup-0.5.2.exe`;
+   `installer-bestmdmtool\artifacts\BestMDMToolSetup-0.5.3.exe`;
 4. writes `installer-bestmdmtool\artifacts\SHA256SUMS.txt`.
 
 Alternative entry points:

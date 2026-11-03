@@ -47,9 +47,10 @@ Windows:
 Linux/macOS development only:
   ./run_bestmdmtool.sh
 
-The bundled runtime/bin Python is used for the headless BROM runner and does
-not need Tkinter. BestMDMTool contains no login, licensing, heartbeat, or
-telemetry code. The legacy compiled client is not included.
+The bundled runtime/bin Python is only for the source-mode fallback. The
+MediaTek device backend is not included; use SPD/Unisoc operations only.
+BestMDMTool contains no login, licensing, heartbeat, or telemetry code. The
+legacy compiled client is not included.
 """
 
 
@@ -106,7 +107,6 @@ def build(output_dir: Path) -> tuple[Path, str, int]:
         add_tree(archive, ROOT / "bestmdmtool", "bestmdmtool", seen)
         add_tree(archive, ROOT / "servicecore", "servicecore", seen)
         add_tree(archive, ROOT / "runtime" / "bin", "runtime/bin", seen)
-        add_tree(archive, ROOT / "runtime" / "lib", "runtime/lib", seen)
         add_tree(archive, ROOT / "Bin", "Bin", seen)
         add_tree(archive, ROOT / "adb_assets", "adb_assets", seen)
         add_tree(archive, ROOT / "certifi", "certifi", seen)
@@ -138,7 +138,6 @@ def build(output_dir: Path) -> tuple[Path, str, int]:
 
         add_file(archive, INSTALLER_DIR / "README.md", "INSTALLER.md", seen)
         add_file(archive, INSTALLER_DIR / "version.txt", "VERSION.txt", seen)
-        add_file(archive, ROOT / "runtime" / "lib" / "LICENSE", "LICENSE-mtkclient.txt", seen)
         archive.writestr("PORTABLE_README.txt", PORTABLE_README)
 
     digest = hashlib.sha256(archive_path.read_bytes()).hexdigest()

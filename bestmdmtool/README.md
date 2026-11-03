@@ -1,9 +1,15 @@
+> **Security advisory:** v0.5.2 is withdrawn. Its MediaTek backend could invoke
+> security-bypass code automatically and falsely report an erase as successful.
+> v0.5.3 disables MTK sessions before a runner starts and does not include the
+> MTK backend or loaders. The phone's data state after a failed erase is unknown;
+> do not retry erase or flash operations until the device has been checked.
+
 # BestMDMTool
 
-A no-login service workspace for **MediaTek** (BROM/DA, via the bundled
-mtkclient) and **Spreadtrum/Unisoc** (BSL/FDL, via a built-in protocol engine)
-devices. It opens straight into the device screen — no account, no server, no
-heartbeat — and keeps one persistent session per device.
+A no-login local service workspace with MediaTek USB detection and a working
+**Spreadtrum/Unisoc** BSL/FDL engine. MediaTek connect/read/write/erase is
+**temporarily disabled** pending a security review. The app opens straight into
+the device screen — no account, server, heartbeat, or remote service.
 
 > Use only on devices you own or are explicitly authorized to service.
 
@@ -56,32 +62,22 @@ Settings has a **Chip family** selector with three values:
 | Value | Behaviour |
 | --- | --- |
 | `auto` (default) | Reads USB first and opens the engine that matches the phone |
-| `mtk` | Always the MediaTek BROM/DA engine |
+| `mtk` | MediaTek detected; device session currently blocked pending security review |
 | `spd` | Always the Spreadtrum/Unisoc BSL engine |
 
-With `auto`, a MediaTek phone in PreLoader/BROM gets the MTK engine and a
-Spreadtrum phone in BSL/FDL gets the SPD engine. If you pick a family explicitly
-and the phone on USB belongs to the other one, the tool logs the mismatch and
-uses the hardware's engine — an SPD session can never talk to an MTK phone.
+With `auto`, the doctor identifies MediaTek PreLoader/BROM and Spreadtrum/Unisoc
+BSL/FDL hardware. Spreadtrum sessions can proceed. A MediaTek connect request
+is refused in the GUI before it launches a runner, and the frozen runner also
+fails closed if called directly. No MediaTek DA/backend payload is installed.
 
-The device runners start in a writable scratch directory
-(`%LOCALAPPDATA%\BestMDMTool\work`). `mtkclient` writes `.hwparam.json` and a
-log next to its working directory, which fails when the app is installed under
-`Program Files`; the runners no longer run from there.
+The runner scratch directory is `%LOCALAPPDATA%\BestMDMTool\work`.
 
-## MediaTek driver requirement
+## MediaTek status and diagnostics
 
-The MediaTek engine talks to the phone through **libusb**, so the BROM port must
-be reachable by libusb:
-
-* **UsbDk** (recommended, what mtkclient documents) — install it once, then
-  BROM/PreLoader ports work even though the MediaTek VCOM driver is bound.
-* Or bind **WinUSB / libusbK** to the port with Zadig.
-
-If the Connection doctor reports driver `wdm_usb` or `usbser` for a MediaTek
-download port, the phone is visible but libusb cannot open it yet. Spreadtrum
-phones are different: they answer on the COM port, so **Settings → SPD transport
-= serial** plus the port number is enough.
+Seeing a port and its Windows driver does not establish whether a device can be
+opened. The doctor reports the pyusb module and libusb backend separately. Do
+not change or replace a driver based only on this diagnostic. MTK sessions are
+currently blocked pending security review.
 
 ## When the phone is not detected
 
@@ -104,9 +100,9 @@ connected phone. Every launch also logs a one-line USB snapshot.
 ## Diagnosing a failed connection
 
 **Settings -> Run backend self-test** executes `BestMDMToolRunner.exe --selftest`
-and reports the Python version, mtkclient import, libusb backend, DA loaders and
-USB devices it can see. The same summary goes to the activity log, so a support
-report can name the failing piece instead of guessing.
+and reports the Python version, SPD engine, pyusb/pyserial, libusb backend and
+USB devices it can see. It also states that MTK is disabled. The same summary
+goes to the activity log.
 
 ## Interface
 
@@ -115,55 +111,47 @@ Sidebar navigation with a shared activity log dock and a live status bar.
 | Page | What it does |
 | --- | --- |
 | **Dashboard** | Chipset, hardware code, storage type, partition count, ADB state, quick actions |
-| **Partition Manager** | Filterable GPT table: read, write, erase, back up all, export GPT |
-| **Firmware Flasher** | Flash an image to a partition, batch queue with auto-matching, raw offset write |
-| **Advanced Tools** | Raw flash read/erase at a byte offset, live memory peek/poke with hex viewer |
-| **Bootloader** | Lock-state probe via ADB, seccfg unlock/lock over DA, fastboot helpers |
+| **Partition Manager** | SPD sessions: filterable partition table, read/write/erase; MTK actions unavailable |
+| **Firmware Flasher** | SPD firmware workflows; MTK image writes unavailable |
+| **Advanced Tools** | MTK raw flash and memory operations unavailable pending review |
+| **Bootloader** | Lock-state probe via ADB and fastboot helpers; direct seccfg buttons are disabled |
 | **ADB & Fastboot** | Device list, reboot targets, shell, APK install, push/pull |
 | **SPD Toolkit** | Spreadtrum/Unisoc BSL session: transport, partition table, read/write/erase, reboot |
 | **SPD Firmware** | Open a `.pac`, verify every CRC, flash it, extract it, or build a new package (ROM maker) |
 | **SPD DIAG** | AT/DIAG console over the serial port: model, firmware, IMEI, SIM, signal |
 | **Chipsets** | MediaTek + Spreadtrum/Unisoc database with USB ids and USB detection |
-| **Settings** | Session mode (BROM/preloader), transport, custom DA loader, auth file, verbose logging |
+| **Settings** | SPD transport, safe defaults and diagnostics; MTK mode/loader/auth controls disabled |
 | **About** | Product identity and safety boundaries |
 
 Keyboard: `F5` refreshes the partition table.
 
 ## Operations
 
-Everything runs locally through the device runner, which keeps one BROM/DA
-connection open and accepts JSON commands on stdin. The installer ships it as
-`BestMDMToolRunner.exe` (a frozen build with a complete CPython, pyusb,
-pyserial and libusb) because the vendored `runtime/bin` interpreter has no
-C extension modules:
+The frozen `BestMDMToolRunner.exe` contains the first-party SPD/Unisoc engine,
+pyusb, pyserial and libusb. **The MediaTek runner is fail-closed**: the GUI stops
+before launching it, and a direct `--engine mtk` invocation returns a failure
+before importing a device backend or opening USB. The installer does not include
+mtkclient, DA loaders, or the legacy Oumse runners.
 
-MediaTek engine::
-
-```
-info, gpt, gpt_export, read, write, erase, dump,
-readflash, writeflash, eraseflash, peek, poke,
-seccfg, reboot, quit
-```
-
-Spreadtrum engine (``BestMDMToolRunner.exe --engine spd``)::
+The supported Spreadtrum/Unisoc command set is:
 
 ```
-info, partitions, read, write, erase,
-readflash, writeflash, eraseflash,
+info, partitions, read, write, erase, readflash, writeflash, eraseflash,
 pac_open, pac_flash, pac_extract, pac_build, reboot, quit
 ```
 
-Progress, per-step events, and failures stream back as `SVC_*` lines
-(`SVC_STEP`, `SVC_PROGRESS`, `SVC_LOG`, `SVC_INFO`, `SVC_READY`, `SVC_OK`,
-`SVC_FAIL`, `SVC_DATA`, `SVC_BYE`).
+Progress, per-step events, and failures stream back as `SVC_*` lines. Empty
+partition tables, incomplete reads, out-of-range writes, and failed format
+operations return `SVC_FAIL`, not a successful empty result.
 
-Destructive actions (write, erase, poke, seccfg, raw flash) always require
-confirmation, and protected partitions are flagged in the table.
+Direct MediaTek seccfg controls remain visible but disabled. This is a safety
+containment release, not a MediaTek recovery tool.
 
 ## Spreadtrum/Unisoc engine
 
-MediaTek and Spreadtrum devices are handled by two engines behind one client, so
-the GUI, the log and the session lifecycle are identical.
+Spreadtrum/Unisoc is the only currently enabled chipset engine. The shared GUI,
+log and session lifecycle also identify MediaTek hardware, but do not open an
+MTK device session.
 
 * **Transport** - `auto` (USB first, then the first serial port), `usb`, `serial`
   with an explicit port, or `simulator` for training without hardware.
@@ -196,8 +184,8 @@ python -m bestmdmtool      # from the repository root
 
 `installer-bestmdmtool/` builds `BestMDMToolSetup-<version>.exe` with Inno
 Setup. The installer ships a standalone `BestMDMTool.exe` (PyInstaller with its
-own Python + Tkinter), so end users do not need Python at all. The bundled
-x86 `runtime/bin` Python is only used headlessly by the BROM runner.
+own Python + Tkinter), so end users do not need Python at all. The installer
+includes no MediaTek DA backend or loader payload.
 
 ```powershell
 .\BUILD_BESTMDMTOOL_INSTALLER.bat
@@ -228,6 +216,6 @@ bestmdmtool/
                     # bootloader, adb_tools, settings, about
 servicecore/
   service_session.py  # client for the runner protocol
-  runner/service_runner.py  # persistent BROM/DA backend
+  runner/service_runner.py  # fail-closed MTK adapter (no device access)
   adb.py              # ADB / Fastboot wrappers
 ```

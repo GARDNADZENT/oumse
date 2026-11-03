@@ -1,17 +1,24 @@
 # Oumse GSM Tool Pro / BestMDMTool — No-Login Community Front-Ends
 
+> **Security advisory:** v0.5.2 is withdrawn. It could invoke MediaTek security-bypass code
+> automatically and report a failed erase as successful. The v0.5.3 safety build disables
+> MediaTek sessions and removes the MTK backend/loaders; check [GET_BESTMDMTOOL.md](GET_BESTMDMTOOL.md)
+> for the current installer and details. Do not retry erase/flash operations on the affected phone.
+
 > **Just want the installer?** Download
-> [`BestMDMToolSetup-0.5.2.exe`](https://github.com/GARDNADZENT/oumse/releases/download/v0.5.2/BestMDMToolSetup-0.5.2.exe)
+> [`BestMDMToolSetup-0.5.3.exe`](https://github.com/GARDNADZENT/oumse/releases/download/v0.5.3/BestMDMToolSetup-0.5.3.exe)
 > (self-contained, no login, no Python needed). Step-by-step instructions: [GET_BESTMDMTOOL.md](GET_BESTMDMTOOL.md).
 
-This repository now contains **two directly opening, no-login front-ends** for the existing
-MediaTek BROM runner:
+This repository contains **two directly opening, no-login front-ends**. The
+BestMDMTool v0.5.3 installer supports the SPD/Unisoc engine; its MTK session is
+disabled pending a security review. The older community app and legacy runners
+are separate components and are not part of the BestMDMTool installer:
 
 - `app/` — Oumse GSM Tool Pro community edition.
 - `bestmdmtool/` — **BestMDMTool**, a separate authorized-service product.
 
-Both share `servicecore/` for session management, safe patching, safety checks, and path
-configuration. Neither front-end has a login screen, licensing server, heartbeat, or telemetry.
+They share some path and session utilities in `servicecore/`; the BestMDMTool
+installer excludes the MTK backend and legacy device runners. Neither front-end has a login screen, licensing server, heartbeat, or telemetry.
 The original compiled Windows client has been moved to `legacy/` and is no longer the default
 entry point.
 
@@ -37,9 +44,9 @@ entry point.
 ## Quick start (Windows)
 
 1. Install **Python 3.10+ with Tkinter** (the official python.org installer includes it). The
-   bundled `runtime\bin\python.exe` is used only for the headless BROM runner.
-2. Install the normal MediaTek USB / preloader VCOM / UsbDk drivers for your device.
-3. Power off the phone and connect it in BROM or preloader mode as required by the chipset.
+   bundled `runtime\bin\python.exe` is used only by the source-mode fallback launcher.
+2. For BestMDMTool v0.5.3, use the SPD/Unisoc engine only. MediaTek sessions are disabled.
+3. For Spreadtrum/Unisoc, connect the phone in BSL/download mode as required by the chipset.
 4. Double-click one of the launchers:
    - **`START_NO_LOGIN.bat`** — Oumse community front-end.
    - **`START_BEST_MDM_TOOL.bat`** — BestMDMTool.
@@ -184,7 +191,7 @@ On Windows, run:
 installer-bestmdmtool\build_installer.bat
 ```
 
-It produces `installer-bestmdmtool\artifacts\BestMDMToolSetup-0.5.2.exe`. See
+It produces `installer-bestmdmtool\artifacts\BestMDMToolSetup-0.5.3.exe`. See
 `installer-bestmdmtool/README.md` and `bestmdmtool/README.md`.
 
 Both installers create Start Menu and optional Desktop shortcuts that launch their respective

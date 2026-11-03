@@ -6,6 +6,22 @@ The new `app/` front-end is designed to be offline and login-free. It does not c
 licensing client, heartbeat, telemetry, anti-analysis logic, or network code. Unit tests in
 `tests/test_no_login.py` enforce this.
 
+## v0.5.2 field incident and containment
+
+The v0.5.2 MediaTek log showed the bundled `DaHandler.configure_da()` path
+invoking a security-bypass/exploitation routine (`Kamakiri`) and patching the
+Download Agent. The same session reported an `Exceed available range` error
+while formatting `userdata`, then surfaced **"Erase complete"** because the
+runner ignored the per-partition result. Further erase attempts failed. The
+phone's final data state cannot be determined from logs; do not claim that the
+erase completed or that the data is intact.
+
+BestMDMTool v0.5.3 is a containment release: MTK connect is refused before the
+runner starts, the frozen runner itself fails closed, and the BestMDMTool
+installer no longer includes mtkclient, DA loaders, or legacy Oumse runners.
+Erase/read result handling also fails closed. Only the SPD/Unisoc engine is
+currently enabled. v0.5.2 is withdrawn; do not use it for device operations.
+
 ## Completed in the security/cleanup pass
 
 - Removed `runtime/lib/logs/log.txt` (20 MiB, 532k lines, developer paths, USB traces).
@@ -35,8 +51,8 @@ licensing client, heartbeat, telemetry, anti-analysis logic, or network code. Un
 | Hardcoded remember-me key in legacy executable | Still present in `legacy/OumseGsmToolPro.exe`; do not use that binary. |
 | Login/licensing server dependency | Removed from the new GUI; server source is still absent from this repository. |
 | Unsigned Windows executables | All shipped binaries remain unsigned. Code signing and reproducible builds are still needed. |
-| Vendor DA binary provenance | `runtime/lib/mtkclient/Loader/MTK_DA_V6.bin` differs from upstream and contains internal vendor build paths. Legal review required. |
-| GPLv3 compliance | `runtime/lib/LICENSE` is present, but a full compliance review for the compiled product and bundled binaries is still required. |
+| Vendor DA binary provenance | DA loaders remain in the source checkout but are excluded from the BestMDMTool v0.5.3 installer. Provenance and legal review remain open before any future MTK distribution. |
+| GPLv3 compliance | A full compliance review for the repository and any future compiled MTK distribution is still required. |
 | Third-party SBOM | No complete software bill of materials with versions, hashes, and licenses yet. |
 | Device-destructive operations | The new GUI adds confirmations and guards, but device writes have no rollback. Keep full dumps. |
 | Runtime monkey patches | The two original runners in `runtime/lib/` still patch `pyserial`/`mtkclient` internals and should be refactored. |

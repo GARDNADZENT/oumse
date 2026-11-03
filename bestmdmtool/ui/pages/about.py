@@ -23,14 +23,12 @@ class AboutPage(BasePage):
         for title, body in (
             (
                 "What this is",
-                "A no-login service workspace for two chip families.\n"
+                "A no-login service workspace with MediaTek detection and a first-party\n"
+                "Spreadtrum/Unisoc BSL/FDL engine. MediaTek sessions are temporarily\n"
+                "disabled pending security review; no MTK commands are sent.\n"
                 "\n"
-                "MediaTek: the bundled mtkclient BROM/DA layer, for partition reads,\n"
-                "writes, erases, backups, raw flash access, seccfg and ADB/Fastboot.\n"
-                "\n"
-                "Spreadtrum/Unisoc: a built-in BSL/FDL engine with a partition table,\n"
-                "read/write/erase, PAC firmware flashing, PAC packaging (ROM maker)\n"
-                "and an AT/DIAG console.",
+                "Spreadtrum/Unisoc: partition table, read/write/erase, PAC firmware\n"
+                "flashing and packaging (ROM maker), and an AT/DIAG console.",
             ),
             (
                 "What this is not",
@@ -41,9 +39,9 @@ class AboutPage(BasePage):
             ("Authorized use", AUTHORIZED_USE),
             (
                 "Components",
-                "mtkclient 2.1.4 (GPLv3) for the MediaTek DA/BROM protocol, a first-party\n"
-                "Spreadtrum BSL/FDL implementation, the bundled Python runtime for the\n"
-                "headless runners, Android platform tools for ADB/Fastboot.",
+                "First-party Spreadtrum/Unisoc BSL/FDL implementation, pyusb/pyserial,\n"
+                "bundled libusb DLLs, and Android platform tools for ADB/Fastboot.\n"
+                "The MediaTek DA backend is not included in this installer.",
             ),
         ):
             block = tk.Frame(card.body, bg=theme.PANEL)

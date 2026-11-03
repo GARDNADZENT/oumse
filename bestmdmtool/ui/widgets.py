@@ -322,18 +322,19 @@ class PathRow(tk.Frame):
         browse: Callable[[], str] | None = None,
     ) -> None:
         super().__init__(master, bg=theme.PANEL)
-        tk.Label(
+        self.label = tk.Label(
             self,
             text=label,
             bg=theme.PANEL,
             fg=theme.TEXT_MUTED,
             font=theme.FONT_BADGE,
             anchor="w",
-        ).pack(fill="x")
+        )
+        self.label.pack(fill="x")
         row = tk.Frame(self, bg=theme.PANEL)
         row.pack(fill="x", pady=(3, 0))
         self.var = tk.StringVar()
-        tk.Entry(
+        self.entry = tk.Entry(
             row,
             textvariable=self.var,
             bg=theme.PANEL_ALT,
@@ -346,9 +347,12 @@ class PathRow(tk.Frame):
             highlightbackground=theme.BORDER,
             font=theme.FONT_UI_SMALL,
             state="readonly",
-        ).pack(side="left", fill="x", expand=True, ipady=4)
+        )
+        self.entry.pack(side="left", fill="x", expand=True, ipady=4)
+        self.browse_button = None
         if browse is not None:
-            ActionButton(row, "Browse", browse, variant="ghost").pack(side="left", padx=(6, 0))
+            self.browse_button = ActionButton(row, "Browse", browse, variant="ghost")
+            self.browse_button.pack(side="left", padx=(6, 0))
 
     def get(self) -> str:
         return self.var.get().strip()

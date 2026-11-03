@@ -102,7 +102,8 @@ class VerdictTests(unittest.TestCase):
             sources={"pyusb": True},
         )
         self.assertEqual(report.verdict, "download")
-        self.assertTrue(any("cannot be opened" in step for step in report.steps))
+        self.assertTrue(any("sessions pending a security review" in step for step in report.steps))
+        self.assertFalse(any("Press Connect" in step for step in report.steps))
         self.assertTrue(any("usbser" in step for step in report.steps))
 
     def test_spreadtrum_on_a_com_port_uses_the_serial_transport(self) -> None:
@@ -125,7 +126,7 @@ class VerdictTests(unittest.TestCase):
             [_device(0x18D1, 0x4EE7, name="Android ADB Interface")], sources={"pyusb": True}
         )
         self.assertEqual(report.verdict, "android")
-        self.assertTrue(any("power off" in step.lower() for step in report.steps))
+        self.assertTrue(any("different phone" in step.lower() for step in report.steps))
 
     def test_missing_pyusb_is_reported_as_a_backend_problem(self) -> None:
         report = _report([], sources={"pyusb": True, "pnp": True}, errors={"pyusb": "NoBackendError: no backend"})

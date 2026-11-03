@@ -58,6 +58,7 @@ def run_selftest(report_path: str) -> int:
         from servicecore.config import ROOT, python_executable, service_runner_path
         from servicecore.service_session import ServiceSession
 
+        usb_status = usbscan.interface_status()
         report.update(
             {
                 "product": branding.PRODUCT_NAME,
@@ -69,15 +70,18 @@ def run_selftest(report_path: str) -> int:
                 "python_exists": python_executable().exists(),
                 "pages": sorted(PAGES),
                 "usb_interfaces": {
-                    "pyusb": bool(usbscan.interface_status().get("pyusb")),
-                    "pyserial": bool(usbscan.interface_status().get("pyserial")),
+                    "pyusb": bool(usb_status.get("pyusb")),
+                    "pyserial": bool(usb_status.get("pyserial")),
                 },
+                "usb_backend": usb_status.get("libusb", ""),
+                "usb_backend_error": usb_status.get("pyusb_error", ""),
                 "sections": [section.key for section in VISIBLE_SECTIONS],
                 "languages": list(LANGUAGES),
                 "session_client": ServiceSession.__name__,
                 "adb": str(find_adb() or ""),
                 "fastboot": str(find_fastboot() or ""),
-                "runtime_lib": (ROOT / "runtime" / "lib").is_dir(),
+                "mtk_available": False,
+                "mtk_notice": "MediaTek sessions are disabled pending security review.",
             }
         )
         required_pages = {"dashboard", "partitions", "flasher", "advanced", "bootloader", "adb", "spd", "pac", "diag",
@@ -88,11 +92,12 @@ def run_selftest(report_path: str) -> int:
         report["shell_ok"] = shell_ok
         # A build without these libraries cannot see any phone, so it must not ship.
         usb_interfaces = report["usb_interfaces"]
-        report["usb_ok"] = bool(usb_interfaces["pyusb"] and usb_interfaces["pyserial"])
+        report["usb_ok"] = bool(
+            usb_interfaces["pyusb"] and usb_interfaces["pyserial"] and report["usb_backend"] == "available"
+        )
         report["ok"] = bool(
             report["runner_exists"]
             and report["python_exists"]
-            and report["runtime_lib"]
             and not missing
             and shell_ok
             and report["usb_ok"]

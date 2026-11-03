@@ -1,12 +1,12 @@
-"""Console entry point for the frozen MTK service runner.
+"""Console entry point for the frozen BestMDMTool device runner.
 
 Built by PyInstaller as ``BestMDMToolRunner.exe``. It ships a complete CPython
-with all C extensions (the vendored ``runtime/bin`` interpreter has none), so
-mtkclient, pyusb and pyserial work out of the box.
+with the first-party Spreadtrum/Unisoc protocol engine, pyusb and pyserial.
+The MediaTek connection path is intentionally disabled pending a security
+review; the MTK backend and its loaders are not bundled by this installer.
 
-``BestMDMToolRunner.exe --selftest [report.json]`` verifies the bundled backend
-without touching a device: it imports mtkclient, pyserial, pyusb, loads the
-libusb backend, enumerates USB devices, and writes a JSON report.
+``BestMDMToolRunner.exe --selftest [report.json]`` verifies the SPD and USB
+runtime without touching a device and writes a JSON report.
 """
 
 from __future__ import annotations
@@ -16,6 +16,7 @@ import os
 import sys
 import tempfile
 import traceback
+from pathlib import Path
 
 
 def _ensure_import_path() -> None:
@@ -24,12 +25,11 @@ def _ensure_import_path() -> None:
         return
     from pathlib import Path
 
-    # Append, never prepend: a real installed pyusb/pyserial/Cryptodome must win
-    # over the vendored copies in runtime/bin (which ship without C extensions).
+    # Append, never prepend: use installed USB packages rather than optional
+    # vendored code from another product in this repository.
     root = Path(__file__).resolve().parents[1]
-    for extra in (root, root / "runtime" / "lib", root / "runtime" / "bin" / "Lib" / "site-packages"):
-        if extra.is_dir() and str(extra) not in sys.path:
-            sys.path.append(str(extra))
+    if root.is_dir() and str(root) not in sys.path:
+        sys.path.append(str(root))
 
 
 def _engine_from_argv() -> str:
@@ -41,7 +41,7 @@ def _engine_from_argv() -> str:
 
 
 def _libusb_candidates() -> list[str]:
-    """Return places mtkclient expects to find the libusb shared library."""
+    """Return places the bundled USB transports can find the libusb library."""
     from pathlib import Path
 
     names = ["libusb32-1.0.dll", "libusb-1.0.dll"] if os.name == "nt" else ["libusb-1.0.so"]
@@ -49,7 +49,7 @@ def _libusb_candidates() -> list[str]:
     if getattr(sys, "frozen", False):
         roots.append(Path(sys.executable).resolve().parent)
     here = Path(__file__).resolve().parent
-    roots.extend([here, here.parent])
+    roots.extend([here, here.parent, here.parent / "runtime" / "runner"])
     for env_name in ("BESTMDMTOOL_ROOT", "OUMSE_ROOT", "SVC_ROOT"):
         raw = (os.environ.get(env_name) or "").strip()
         if raw:
@@ -59,7 +59,6 @@ def _libusb_candidates() -> list[str]:
     for root in roots:
         for name in names:
             candidates.append(str(root / name))
-            candidates.append(str(root / "runtime" / "lib" / "mtkclient" / "Windows" / name))
     candidates.extend(names)  # let the loader search PATH / the exe directory
     seen: list[str] = []
     for item in candidates:
@@ -82,6 +81,8 @@ def run_selftest(report_path: str) -> int:
 
         report["pyserial"] = getattr(serial, "VERSION", "?")
         report["pyusb"] = getattr(usb, "__version__", "?")
+        report["pyserial_available"] = True
+        report["pyusb_available"] = True
 
         backend = None
         searched = _libusb_candidates()
@@ -98,19 +99,27 @@ def run_selftest(report_path: str) -> int:
         devices = list(usb.core.find(find_all=True, backend=backend) or []) if backend else []
         report["usb_devices"] = len(devices)
 
-        from mtkclient.config.mtk_config import MtkConfig  # noqa: F401
-        from mtkclient.Library.DA.mtk_da_handler import DaHandler  # noqa: F401
-        from mtkclient.Library.mtk_class import Mtk  # noqa: F401
+        from servicecore.runner import spd_runner
 
-        from servicecore.runner.service_runner import HANDLERS, LIB_DIR
-
-        report["mtkclient"] = True
-        report["runtime_lib"] = str(LIB_DIR)
-        report["runtime_lib_exists"] = LIB_DIR.is_dir()
-        report["operations"] = sorted(HANDLERS)
-        report["da_v5"] = (LIB_DIR / "mtkclient" / "Loader" / "MTK_DA_V5.bin").is_file()
-        report["da_v6"] = (LIB_DIR / "mtkclient" / "Loader" / "MTK_DA_V6.bin").is_file()
-        report["ok"] = bool(report["libusb_backend"] and report["runtime_lib_exists"])
+        report["libusb_backend"] = backend is not None
+        report["libusb_search"] = searched[:8]
+        report["libusb_dll"] = report.get("libusb_dll") or ""
+        report["usb_devices"] = len(devices)
+        report["spd_engine"] = True
+        report["operations"] = sorted(spd_runner.HANDLERS)
+        if getattr(sys, "frozen", False):
+            runner_dir = Path(sys.executable).resolve().parent
+        else:
+            runner_dir = Path(__file__).resolve().parent
+        report["runner_dir"] = str(runner_dir)
+        report["mtk_available"] = False
+        report["mtk_notice"] = "MediaTek sessions are disabled pending security review."
+        report["ok"] = bool(
+            report["libusb_backend"]
+            and report["pyserial_available"]
+            and report["pyusb_available"]
+            and report["spd_engine"]
+        )
     except Exception:
         report["error"] = traceback.format_exc()
 

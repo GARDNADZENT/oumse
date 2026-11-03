@@ -10,15 +10,15 @@ Produces two PyInstaller bundles in installer-bestmdmtool\frozen:
   BestMDMToolRunner\BestMDMToolRunner.exe device runner (console, full stdlib)
 
 The runner is frozen because the vendored runtime\bin interpreter ships without
-any *.pyd C extensions, so it cannot import socket/ssl and therefore cannot run
-mtkclient. Freezing gives a complete CPython plus pyusb, pyserial and libusb.
+all of its C extensions. It contains the first-party SPD protocol engine and the
+USB libraries only; the MediaTek DA backend is intentionally not bundled.
 
 .PARAMETER PythonExe
 Build interpreter (default: py -3 or python on PATH). Must be 3.11/3.12 x64.
 
 .PARAMETER Skip
-Skip both builds; the installer then falls back to the bundled runtime, which is
-only usable when runtime\bin\*.pyd files are present.
+Skip both builds; the installer falls back to the source launcher, which needs
+an installed Python with Tkinter.
 #>
 
 [CmdletBinding()]
@@ -60,23 +60,18 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host "Installing build dependencies..."
-# The vendored runtime\bin site-packages has no C extensions at all, so its
-# Cryptodome cannot even import. Install real wheels into the build interpreter
-# and let PyInstaller collect those instead of the vendored copies.
+# Install only the packages used by the GUI USB scan and SPD runner.
 $runtimeDeps = @(
     "pyinstaller",
     "pyusb",
     "pyserial",
-    "pycryptodomex",
-    "colorama",
-    "capstone",
-    "keystone-engine"
+    "colorama"
 )
 & $python.Exe @($python.Args) @("-m", "pip", "install", "--quiet", "--disable-pip-version-check") @runtimeDeps
 if ($LASTEXITCODE -ne 0) { throw "Could not install the build dependencies." }
 
-& $python.Exe @($python.Args) @("-c", "from Cryptodome.Cipher import AES; import usb.core, serial; print('build deps ok')") | Out-Null
-if ($LASTEXITCODE -ne 0) { throw "Build dependencies are incomplete (Cryptodome/pyusb/pyserial)." }
+& $python.Exe @($python.Args) @("-c", "import usb.core, serial, colorama; print('build deps ok')") | Out-Null
+if ($LASTEXITCODE -ne 0) { throw "Build dependencies are incomplete (pyusb/pyserial/colorama)." }
 
 $frozenDir = Join-Path $PSScriptRoot "frozen"
 $workDir = Join-Path $PSScriptRoot "build\pyinstaller"
@@ -116,16 +111,11 @@ Write-Host "Building BestMDMToolRunner.exe (device backend)..."
     "--noconfirm", "--clean", "--console", "--onedir",
     "--name", "BestMDMToolRunner",
     "--paths", $root,
-    "--paths", $libDir,
-    "--collect-submodules", "mtkclient",
     "--collect-submodules", "servicecore",
     "--collect-all", "usb",
     "--collect-all", "serial",
     "--collect-all", "libusb",
     "--collect-all", "colorama",
-    "--collect-all", "capstone",
-    "--collect-all", "keystone",
-    "--collect-all", "Cryptodome",
     "--distpath", $frozenDir,
     "--workpath", (Join-Path $workDir "runner"),
     "--specpath", (Join-Path $workDir "runner"),
@@ -133,8 +123,7 @@ Write-Host "Building BestMDMToolRunner.exe (device backend)..."
 )
 if ($LASTEXITCODE -ne 0) { throw "PyInstaller failed for the runner (exit $LASTEXITCODE)." }
 
-# mtkclient loads libusb by bare name, so it must sit next to the runner exe.
-# The GUI opens USB itself for detection, so it needs the DLL beside it too.
+# The GUI and the SPD engine need the USB transports and libusb beside each exe.
 $libusbSource = Join-Path $libDir "mtkclient\Windows"
 foreach ($target in @(
         (Join-Path $frozenDir "BestMDMToolRunner"),

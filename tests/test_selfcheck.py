@@ -22,14 +22,15 @@ GOOD_REPORT = {
     "ok": True,
     "frozen": True,
     "python": "3.12.8 (main,  2024)",
-    "mtkclient": True,
+    "mtk_available": False,
+    "spd_engine": True,
+    "pyusb_available": True,
+    "pyserial_available": True,
     "libusb_backend": True,
     "libusb_dll": r"C:\app\runtime\runner\libusb-1.0.dll",
     "usb_devices": 1,
-    "runtime_lib": r"C:\app\runtime\lib",
-    "da_v5": True,
-    "da_v6": True,
-    "operations": ["dump", "erase", "gpt", "peek", "poke", "read", "reboot", "seccfg", "write"],
+    "runner_dir": r"C:\app\runtime\runner",
+    "operations": ["ping", "partitions", "read", "write", "erase", "pac_flash"],
 }
 
 
@@ -73,7 +74,7 @@ class SelfcheckRunTests(unittest.TestCase):
         self.assertTrue(report["ok"])
         self.assertEqual(report["exit_code"], 0)
         self.assertTrue(selfcheck.is_healthy(report))
-        self.assertIn("mtkclient: yes", "\\n".join(report["lines"]))
+        self.assertIn("Spreadtrum/Unisoc engine: yes", "\\n".join(report["lines"]))
         self.assertIn("libusb backend: yes", "\\n".join(report["lines"]))
         self.assertIsInstance(report["duration"], float)
 
@@ -150,7 +151,7 @@ class ControllerSelftestTests(unittest.TestCase):
             schedule=lambda action: action(),
         )
         original = selfcheck.run
-        selfcheck.run = lambda *args, **kwargs: dict(GOOD_REPORT, duration=0.5, lines=["mtkclient: yes"])
+        selfcheck.run = lambda *args, **kwargs: dict(GOOD_REPORT, duration=0.5, lines=["Spreadtrum/Unisoc engine: yes"])
         self.addCleanup(setattr, selfcheck, "run", original)
 
         seen: list[dict] = []

@@ -13,7 +13,7 @@ from .base import BasePage
 class BootloaderPage(BasePage):
     key = "bootloader"
     heading = "Bootloader"
-    description = "Read the lock state and flip seccfg on devices you are authorized to service."
+    description = "Read lock state; direct seccfg operations are unavailable."
 
     def build(self) -> None:
         row = tk.Frame(self.content, bg=theme.BG)
@@ -55,20 +55,23 @@ class BootloaderPage(BasePage):
         action_card.grid(row=0, column=1, sticky="nsew")
         tk.Label(
             action_card.body,
-            text="These write the seccfg partition through the open DA session.\n"
-            "Unlocking wipes userdata on most MTK devices.",
+            text="Direct seccfg operations are unavailable under the security policy.",
             bg=theme.PANEL,
             fg=theme.TEXT_MUTED,
             font=theme.FONT_UI_SMALL,
             justify="left",
             anchor="w",
         ).pack(fill="x", pady=(0, 10))
-        ActionButton(action_card.body, "Unlock bootloader", lambda: self._seccfg("unlock"), variant="warning").pack(
-            fill="x", pady=(0, 8)
+        unlock_button = ActionButton(
+            action_card.body, "Unlock bootloader", lambda: self._seccfg("unlock"), variant="ghost"
         )
-        ActionButton(action_card.body, "Re-lock bootloader", lambda: self._seccfg("lock"), variant="ghost").pack(
-            fill="x"
+        unlock_button.configure(state="disabled", disabledforeground=theme.TEXT_DIM)
+        unlock_button.pack(fill="x", pady=(0, 8))
+        relock_button = ActionButton(
+            action_card.body, "Re-lock bootloader", lambda: self._seccfg("lock"), variant="ghost"
         )
+        relock_button.configure(state="disabled", disabledforeground=theme.TEXT_DIM)
+        relock_button.pack(fill="x")
 
         fastboot_card = Card(self.content, "Fastboot helpers")
         fastboot_card.pack(fill="both", expand=True, pady=(10, 0))
@@ -192,22 +195,4 @@ class BootloaderPage(BasePage):
         self.controller.run_async("Checking bootloader state", _work, _done)
 
     def _seccfg(self, state: str) -> None:
-        session = self.require_session()
-        if session is None:
-            return
-        if not self.app.confirm(
-            "Seccfg %s" % state,
-            "%s the bootloader?\n\nThis writes the seccfg partition and can wipe userdata." % state.capitalize(),
-            danger=True,
-        ):
-            return
-        self.log("Requesting seccfg %s" % state, "STEP")
-        self.controller.run_async(
-            "Seccfg %s" % state,
-            lambda: session.seccfg(state),
-            lambda result: self.log(
-                "Seccfg %s %s"
-                % (state, "complete" if getattr(result, "ok", False) else "failed: %s" % getattr(result, "detail", "")),
-                "OK" if getattr(result, "ok", False) else "ERROR",
-            ),
-        )
+        self.log("Direct seccfg operations are unavailable under the security policy.", "WARN")

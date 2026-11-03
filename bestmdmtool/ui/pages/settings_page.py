@@ -29,11 +29,19 @@ class SettingsPage(BasePage):
         conn = Card(row, "Connection")
         conn.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
 
-        self.engine_var = tk.StringVar(value=getattr(self.controller.settings, "engine", "auto"))
+        saved_engine = getattr(self.controller.settings, "engine", "auto")
+        engine_value = "mtk (temporarily disabled)" if saved_engine == "mtk" else saved_engine
+        self.engine_var = tk.StringVar(value=engine_value)
         self.spd_transport_var = tk.StringVar(value=getattr(self.controller.settings, "spd_transport", "auto"))
         self.spd_port_var = tk.StringVar(value=getattr(self.controller.settings, "spd_port", ""))
 
-        self._combo(conn.body, "Chip family", self.engine_var, ("auto", "mtk", "spd"))
+        self._combo(
+            conn.body,
+            "Chip family",
+            self.engine_var,
+            ("auto", "spd", "mtk (temporarily disabled)"),
+            state="readonly",
+        )
         self._combo(conn.body, "SPD transport", self.spd_transport_var, ("auto", "usb", "serial", "simulator"))
 
         self.mode_var = tk.StringVar(value=self.controller.settings.mode)
@@ -41,14 +49,26 @@ class SettingsPage(BasePage):
         self.debug_var = tk.BooleanVar(value=self.controller.settings.debug_log)
         self.confirm_var = tk.BooleanVar(value=self.controller.settings.confirm_destructive)
 
-        self._combo(conn.body, "Session mode", self.mode_var, ("brom", "preloader"))
-        self._combo(conn.body, "Transport", self.transport_var, ("auto", "serial", "com3", "com4", "com5"))
+        self._combo(conn.body, "Session mode (MTK unavailable)", self.mode_var, ("brom", "preloader"), state="disabled")
+        self._combo(
+            conn.body,
+            "Transport (MTK unavailable)",
+            self.transport_var,
+            ("auto", "serial", "com3", "com4", "com5"),
+            state="disabled",
+        )
 
-        self.loader_row = PathRow(conn.body, "Custom DA loader (.bin)", self._browse_loader)
+        self.loader_row = PathRow(conn.body, "Custom DA loader (MTK unavailable)", self._browse_loader)
+        self.loader_row.entry.configure(state="disabled")
+        if self.loader_row.browse_button is not None:
+            self.loader_row.browse_button.configure(state="disabled", disabledforeground=theme.TEXT_DIM)
         self.loader_row.pack(fill="x", pady=(8, 8))
         self.loader_row.set(self.controller.settings.loader)
 
-        self.auth_row = PathRow(conn.body, "Auth file (.auth)", self._browse_auth)
+        self.auth_row = PathRow(conn.body, "Auth file (MTK unavailable)", self._browse_auth)
+        self.auth_row.entry.configure(state="disabled")
+        if self.auth_row.browse_button is not None:
+            self.auth_row.browse_button.configure(state="disabled", disabledforeground=theme.TEXT_DIM)
         self.auth_row.pack(fill="x", pady=(0, 8))
         self.auth_row.set(self.controller.settings.auth)
 
@@ -89,7 +109,7 @@ class SettingsPage(BasePage):
         ).pack(fill="x", pady=(0, 6))
         self.selftest_label = tk.Label(
             behaviour.body,
-            text="Checks the runner, mtkclient, libusb and the DA loaders.",
+            text="Checks the SPD runner, USB libraries and libusb backend. MediaTek is temporarily disabled.",
             bg=theme.PANEL,
             fg=theme.TEXT_DIM,
             font=theme.FONT_UI_SMALL,
@@ -128,7 +148,15 @@ class SettingsPage(BasePage):
         if callable(updater):
             updater()
 
-    def _combo(self, master: tk.Misc, label: str, variable: tk.StringVar, values: tuple[str, ...]) -> None:
+    def _combo(
+        self,
+        master: tk.Misc,
+        label: str,
+        variable: tk.StringVar,
+        values: tuple[str, ...],
+        *,
+        state: str = "normal",
+    ) -> None:
         wrapper = tk.Frame(master, bg=theme.PANEL)
         wrapper.pack(fill="x", pady=(0, 8))
         tk.Label(
@@ -139,7 +167,7 @@ class SettingsPage(BasePage):
             font=theme.FONT_BADGE,
             anchor="w",
         ).pack(fill="x")
-        combo = ttk.Combobox(wrapper, textvariable=variable, values=list(values), state="normal")
+        combo = ttk.Combobox(wrapper, textvariable=variable, values=list(values), state=state)
         combo.pack(fill="x", pady=(3, 0), ipady=3)
 
     def _refresh_paths(self) -> None:
@@ -206,7 +234,8 @@ class SettingsPage(BasePage):
 
     def _save(self) -> None:
         settings = self.controller.settings
-        settings.engine = self.engine_var.get().strip() or "auto"
+        selected_engine = self.engine_var.get().strip() or "auto"
+        settings.engine = "mtk" if selected_engine.startswith("mtk") else selected_engine
         settings.spd_transport = self.spd_transport_var.get().strip() or "auto"
         settings.spd_port = self.spd_port_var.get().strip()
         settings.mode = self.mode_var.get().strip() or "brom"

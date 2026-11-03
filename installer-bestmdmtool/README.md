@@ -1,5 +1,8 @@
 # BestMDMTool Windows installer
 
+> **Safety advisory:** v0.5.2 is withdrawn. The v0.5.3 installer disables MediaTek sessions,
+> excludes the MTK backend/DA loaders, and supports SPD/Unisoc operations only.
+
 This directory contains a reproducible Inno Setup installer for
 [BestMDMTool](../bestmdmtool/README.md), a separate, no-login, authorized-service
 application. It is **not** a copy of the legacy compiled OumseGSM executable and
@@ -12,8 +15,8 @@ does not include MDM/FRP bypass, credential, or licensing-bypass logic.
 | File | Produced by |
 |---|---|
 | `frozen/BestMDMTool/BestMDMTool.exe` | `build_exe.ps1` (PyInstaller standalone GUI) |
-| `artifacts/BestMDMToolSetup-0.4.0.exe` | `build_installer.bat` on Windows / GitHub Actions |
-| `artifacts/BestMDMTool-Portable-0.4.0.zip` | `build_portable.py` on any OS |
+| `artifacts/BestMDMToolSetup-0.5.3.exe` | `build_installer.bat` on Windows / GitHub Actions |
+| `artifacts/BestMDMTool-Portable-0.5.3.zip` | `build_portable.py` on any OS |
 
 The real Windows installer is built with **Inno Setup 6**. This Linux sandbox does
 not include `ISCC.exe`, so the `.exe` is produced by the Windows CI workflow or
@@ -42,7 +45,7 @@ The script:
 - if Inno Setup is missing, installs it automatically (winget, then a direct
   download from jrsoftware.org) — no manual setup needed;
 - compiles `installer-bestmdmtool\BestMDMTool.iss`;
-- writes `installer-bestmdmtool\artifacts\BestMDMToolSetup-0.4.0.exe`;
+- writes `installer-bestmdmtool\artifacts\BestMDMToolSetup-0.5.3.exe`;
 - writes `installer-bestmdmtool\artifacts\SHA256SUMS.txt`.
 
 Equivalent direct invocation:
@@ -70,7 +73,7 @@ On any OS with Python 3.10+:
 python installer-bestmdmtool/build_portable.py
 ```
 
-This writes `installer-bestmdmtool/artifacts/BestMDMTool-Portable-0.4.0.zip` and
+This writes `installer-bestmdmtool/artifacts/BestMDMTool-Portable-0.5.3.zip` and
 a matching `.sha256` file. It is a convenience artifact, not a substitute for a
 signed Windows installer.
 
@@ -79,22 +82,23 @@ signed Windows installer.
 - `BestMDMTool/` — standalone `BestMDMTool.exe` (PyInstaller, bundled Python +
   Tkinter), so **end users do not need to install Python**
 - `bestmdmtool/` — BestMDMTool GUI sources (used by the Python fallback launcher)
-- `servicecore/` — shared session, patching, safety, and config code
-- `runtime/bin/` — bundled headless Python 3.12 runtime for the BROM runner
-- `runtime/lib/` — vendored `mtkclient` and the two BROM runners
-- `Bin/`, `adb_assets/`, `certifi/` — flashing/ADB tools and CA bundle
+- `servicecore/` — session client, SPD engine, USB detection and safety checks
+- `runtime/bin/` — bundled Python runtime for the source-mode fallback
+- `runtime/runner/` — frozen SPD/Unisoc runner plus pyusb, pyserial and libusb
+- `Bin/`, `adb_assets/`, `certifi/` — ADB tools and CA bundle
 - `launcher/` — hidden PowerShell/VBS launcher that finds Python with Tkinter
 - `app_icon.ico`, `START_BEST_MDM_TOOL.bat`, `run_bestmdmtool.sh`
-- documentation, requirements, GPLv3 license text, and version metadata
+- documentation, requirements and version metadata
 
-It also replaces the stale `runtime/bin/python312._pth` with a portable one that
-adds `runtime/bin/Lib/site-packages` and `runtime/lib` to the runner's path.
+**Not included:** `runtime/lib/mtkclient`, DA loaders, legacy Oumse BROM runners,
+or their security-bypass implementation. MediaTek sessions are blocked pending
+an independent review.
 
 ## What the installer excludes
 
 - `legacy/OumseGsmToolPro.exe` and all other legacy login binaries
 - the original `app/` front-end (BestMDMTool is a separate product)
-- `runtime/lib/logs/`, `hwparam.json`, and generated dumps/backups
+- `runtime/lib/`, DA loader binaries, and legacy BROM runners
 - `tests/`, `.github/`, `.git/`, `__pycache__/`, and `*.pyc`
 - Tcl/Tk and CustomTkinter assets from the old compiled GUI
 - root-level DLLs used only by the legacy executable
@@ -121,8 +125,8 @@ None beyond Windows 10/11 — the installer ships the standalone `BestMDMTool.ex
 If the frozen executable is missing (a source-only build made with
 `-SkipFrozenExe`), the installer falls back to the Python launch scripts and
 warns during setup when Python 3.10+ with Tkinter is not installed. The bundled
-`runtime/bin` Python is x86 and only drives the headless BROM runner; it has no
-Tkinter, so it cannot host the GUI.
+`runtime/bin` Python is used only by the source-mode fallback; it has no Tkinter,
+so it cannot host the GUI.
 
 ## Code signing
 

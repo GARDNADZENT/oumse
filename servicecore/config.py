@@ -23,7 +23,7 @@ def _detect_root() -> Path:
         # PyInstaller layout: <app>\BestMDMTool\BestMDMTool.exe
         exe_dir = Path(sys.executable).resolve().parent
         for candidate in (exe_dir, exe_dir.parent, exe_dir.parent.parent, exe_dir.parent.parent.parent):
-            if (candidate / "runtime" / "lib").is_dir():
+            if (candidate / "bestmdmtool").is_dir() and (candidate / "servicecore").is_dir():
                 return candidate
         return exe_dir.parent
 
@@ -51,8 +51,8 @@ def _override(name: str, default: Path) -> Path:
 def _python_is_usable(candidate: str) -> bool:
     """True when the interpreter can load its C extension modules.
 
-    The vendored ``runtime/bin`` Python ships without any ``*.pyd`` files, so
-    binary modules such as hashlib/zlib fail to import and mtkclient cannot run.
+    The vendored ``runtime/bin`` Python may ship without C extensions, so it is
+    only selected if it can import the standard-library modules the runner needs.
     """
     try:
         result = subprocess.run(
@@ -123,11 +123,10 @@ def _is_writable(directory: Path) -> bool:
 
 @lru_cache(maxsize=1)
 def work_dir() -> Path:
-    """Writable scratch directory for the device runners.
+    """Writable scratch directory for the device runners and their temp files.
 
-    ``mtkclient`` writes ``.hwparam.json`` and a log next to its working
-    directory, which fails when the app is installed under ``Program Files``.
-    The runners therefore start here instead.
+    The app is installed under ``Program Files``, which is not writable for a
+    standard user, so runner working files belong in the per-user data folder.
     """
 
     override = os.environ.get("BESTMDMTOOL_WORK_DIR")

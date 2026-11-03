@@ -1,5 +1,4 @@
 python312.zip
 .
 .\Lib\site-packages
-..\lib
 import site
