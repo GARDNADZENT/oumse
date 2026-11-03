@@ -19,7 +19,7 @@ def settings_dir() -> Path:
 class Settings:
     mode: str = "brom"
     transport: str = "auto"
-    engine: str = "mtk"
+    engine: str = "auto"
     spd_transport: str = "auto"
     spd_port: str = ""
     loader: str = ""

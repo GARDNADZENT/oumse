@@ -125,7 +125,7 @@ class VerdictTests(unittest.TestCase):
             [_device(0x18D1, 0x4EE7, name="Android ADB Interface")], sources={"pyusb": True}
         )
         self.assertEqual(report.verdict, "android")
-        self.assertTrue(any("Power the phone off" in step for step in report.steps))
+        self.assertTrue(any("power off" in step.lower() for step in report.steps))
 
     def test_missing_pyusb_is_reported_as_a_backend_problem(self) -> None:
         report = _report([], sources={"pyusb": True, "pnp": True}, errors={"pyusb": "NoBackendError: no backend"})

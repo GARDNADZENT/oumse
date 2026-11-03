@@ -262,19 +262,20 @@ def interface_status() -> dict[str, object]:
 
         status["pyusb"] = True
         status["pyusb_error"] = ""
+        # The only reliable backend check is a real enumeration: pyusb exposes
+        # no stable "backend" attribute, so probing for one is a false alarm.
         try:
-            version = getattr(getattr(usb.core, "backend", None), "libusb_version", None)
-            version = getattr(usb.core.backend, "libusb_version", None) if version is None else version
-            status["libusb"] = ""
-            # A real enumeration is the only reliable backend check on Windows.
-            usb.core.find(find_all=True)
+            found = list(usb.core.find(find_all=True) or [])
             status["libusb"] = "available"
+            status["pyusb_devices"] = len(found)
         except Exception as exc:
             status["libusb"] = ""
+            status["pyusb_devices"] = 0
             status["pyusb_error"] = "%s: %s" % (exc.__class__.__name__, exc)
     except Exception as exc:
         status["pyusb"] = False
         status["libusb"] = ""
+        status["pyusb_devices"] = 0
         status["pyusb_error"] = "%s: %s" % (exc.__class__.__name__, exc)
     try:
         import serial  # noqa: F401  # noqa: PLC0415 - optional dependency
@@ -356,18 +357,18 @@ def _verdict(report: UsbReport) -> tuple[str, str, list[str]]:
             _driver_steps(device),
         )
 
-    booted = [
-        device
-        for device in report.devices
-        if any(word in device.name.lower() for word in ("mtp", "android", "adb", "composite adb"))
-        and device.vendor
-    ]
+    def _is_phone_interface(device: UsbDevice) -> bool:
+        haystack = ("%s %s" % (device.name, device.service)).lower()
+        return any(word in haystack for word in ("mtp", "android", "adb", "wpd"))
+
+    booted = [device for device in report.devices if _is_phone_interface(device)]
     if booted:
         device = booted[0]
         return (
             "android",
-            "The phone is connected and booted into Android (%s, %s), so no download mode is open."
-            % (device.name or device.usb_id, device.usb_id),
+            "The phone is connected and booted into Android (%s, %s, driver %s), so no download "
+            "mode is open."
+            % (device.name or device.usb_id, device.usb_id, device.service or "unknown"),
             [
                 "MediaTek: power off, then hold Volume- (or Volume+ and Volume-) while plugging in.",
                 "Spreadtrum: power off, then hold Volume- while plugging in.",
@@ -405,6 +406,17 @@ def _verdict(report: UsbReport) -> tuple[str, str, list[str]]:
         )
 
     if report.sources.get("pyusb") and report.errors.get("pyusb"):
+        if report.devices:
+            return (
+                "nothing",
+                "Windows sees %d USB device%s, but none is a MediaTek or Spreadtrum phone. "
+                "(pyusb also failed: %s)"
+                % (len(report.devices), "" if len(report.devices) == 1 else "s", report.errors["pyusb"]),
+                [
+                    "Put the phone in download mode: power it off, then hold Volume- while plugging in.",
+                    "Then run this check again from the Chipset Database page.",
+                ],
+            )
         return (
             "backend",
             "pyusb is installed but the libusb backend could not enumerate: %s" % report.errors["pyusb"],
@@ -433,6 +445,11 @@ def _driver_steps(device: UsbDevice) -> list[str]:
         steps.append(
             "Device Manager reports a problem code %s: install the driver before connecting."
             % device.problem
+        )
+    if device.vid == MTK_VID and not device.openable:
+        steps.append(
+            "MediaTek BROM needs UsbDk (or WinUSB/libusbK bound to the port). Install the UsbDk "
+            "driver, reconnect the phone, then press Connect."
         )
     if device.vid == SPD_VID and device.port and not device.openable:
         # Spreadtrum phones answer on a COM port, so the driver is fine as-is.

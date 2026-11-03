@@ -6,6 +6,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 from functools import lru_cache
 from pathlib import Path
 
@@ -107,6 +108,43 @@ def frozen_runner_path() -> Path | None:
     return None
 
 
+def _is_writable(directory: Path) -> bool:
+    """True when a process can actually create files in ``directory``."""
+
+    try:
+        directory.mkdir(parents=True, exist_ok=True)
+        probe = directory / ".write-test"
+        probe.write_text("", encoding="utf-8")
+        probe.unlink()
+    except OSError:
+        return False
+    return True
+
+
+@lru_cache(maxsize=1)
+def work_dir() -> Path:
+    """Writable scratch directory for the device runners.
+
+    ``mtkclient`` writes ``.hwparam.json`` and a log next to its working
+    directory, which fails when the app is installed under ``Program Files``.
+    The runners therefore start here instead.
+    """
+
+    override = os.environ.get("BESTMDMTOOL_WORK_DIR")
+    candidates: list[Path] = []
+    if override:
+        candidates.append(Path(override).expanduser())
+    local = os.environ.get("LOCALAPPDATA") or os.environ.get("XDG_CACHE_HOME")
+    if local:
+        candidates.append(Path(local) / "BestMDMTool" / "work")
+    candidates.append(Path.home() / ".bestmdmtool" / "work")
+    candidates.append(Path(tempfile.gettempdir()) / "BestMDMTool-work")
+    for candidate in candidates:
+        if _is_writable(candidate):
+            return candidate
+    return Path(tempfile.gettempdir())
+
+
 def runner_command(engine: str = "mtk") -> tuple[list[str], Path]:
     """Return ``(argv, cwd)`` for launching the device runner for ``engine``.
 
@@ -115,15 +153,16 @@ def runner_command(engine: str = "mtk") -> tuple[list[str], Path]:
     caller only has to pick the engine name.
     """
     engine = (engine or "mtk").strip().lower()
+    cwd = work_dir()
     frozen = frozen_runner_path()
     if frozen is not None:
         argv = [str(frozen)]
         if engine != "mtk":
             argv += ["--engine", engine]
-        return argv, frozen.parent
+        return argv, cwd
     interpreter = python_executable()
     script = spd_runner_path() if engine == "spd" else service_runner_path()
-    return [str(interpreter), "-u", str(script)], script.parent
+    return [str(interpreter), "-u", str(script)], cwd
 
 
 def spd_runner_path() -> Path:

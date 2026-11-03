@@ -29,11 +29,11 @@ class SettingsPage(BasePage):
         conn = Card(row, "Connection")
         conn.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
 
-        self.engine_var = tk.StringVar(value=getattr(self.controller.settings, "engine", "mtk"))
+        self.engine_var = tk.StringVar(value=getattr(self.controller.settings, "engine", "auto"))
         self.spd_transport_var = tk.StringVar(value=getattr(self.controller.settings, "spd_transport", "auto"))
         self.spd_port_var = tk.StringVar(value=getattr(self.controller.settings, "spd_port", ""))
 
-        self._combo(conn.body, "Chip family", self.engine_var, ("mtk", "spd"))
+        self._combo(conn.body, "Chip family", self.engine_var, ("auto", "mtk", "spd"))
         self._combo(conn.body, "SPD transport", self.spd_transport_var, ("auto", "usb", "serial", "simulator"))
 
         self.mode_var = tk.StringVar(value=self.controller.settings.mode)
@@ -152,7 +152,7 @@ class SettingsPage(BasePage):
             "Python      : %s" % python_executable(),
             "Runner      : %s" % (frozen if frozen is not None else service_runner_path()),
             "Runner mode : %s" % ("frozen executable" if frozen is not None else "source script"),
-            "Chip family : %s" % (getattr(self.controller.settings, "engine", "mtk") or "mtk"),
+            "Chip family : %s" % (getattr(self.controller.settings, "engine", "auto") or "auto"),
             "ADB         : %s" % (adb or "not found"),
             "Fastboot    : %s" % (fastboot or "not found"),
             "Settings    : %s" % self.controller.settings.path(),
@@ -206,7 +206,7 @@ class SettingsPage(BasePage):
 
     def _save(self) -> None:
         settings = self.controller.settings
-        settings.engine = self.engine_var.get().strip() or "mtk"
+        settings.engine = self.engine_var.get().strip() or "auto"
         settings.spd_transport = self.spd_transport_var.get().strip() or "auto"
         settings.spd_port = self.spd_port_var.get().strip()
         settings.mode = self.mode_var.get().strip() or "brom"

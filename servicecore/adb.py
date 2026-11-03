@@ -93,8 +93,13 @@ class AdbTool:
             line = line.strip()
             if not line or line.lower().startswith("list of devices"):
                 continue
+            # "* daemon not running; starting now at tcp:5037" is adb talking to
+            # itself, not a phone.
+            if line.startswith("*") or "daemon" in line.lower():
+                continue
             parts = line.split()
-            if len(parts) >= 2:
+            states = {"device", "offline", "unauthorized", "recovery", "sideload", "bootloader"}
+            if len(parts) >= 2 and parts[1] in states:
                 devices.append((parts[0], parts[1]))
         return devices
 

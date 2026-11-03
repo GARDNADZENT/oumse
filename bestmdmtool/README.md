@@ -49,6 +49,40 @@ it. **Settings -> Export support bundle** zips the activity log, the newest
 crash report, a backend self-test result and the device snapshot into a single
 file on the Desktop, ready to attach to a bug report.
 
+## Choosing the engine
+
+Settings has a **Chip family** selector with three values:
+
+| Value | Behaviour |
+| --- | --- |
+| `auto` (default) | Reads USB first and opens the engine that matches the phone |
+| `mtk` | Always the MediaTek BROM/DA engine |
+| `spd` | Always the Spreadtrum/Unisoc BSL engine |
+
+With `auto`, a MediaTek phone in PreLoader/BROM gets the MTK engine and a
+Spreadtrum phone in BSL/FDL gets the SPD engine. If you pick a family explicitly
+and the phone on USB belongs to the other one, the tool logs the mismatch and
+uses the hardware's engine — an SPD session can never talk to an MTK phone.
+
+The device runners start in a writable scratch directory
+(`%LOCALAPPDATA%\BestMDMTool\work`). `mtkclient` writes `.hwparam.json` and a
+log next to its working directory, which fails when the app is installed under
+`Program Files`; the runners no longer run from there.
+
+## MediaTek driver requirement
+
+The MediaTek engine talks to the phone through **libusb**, so the BROM port must
+be reachable by libusb:
+
+* **UsbDk** (recommended, what mtkclient documents) — install it once, then
+  BROM/PreLoader ports work even though the MediaTek VCOM driver is bound.
+* Or bind **WinUSB / libusbK** to the port with Zadig.
+
+If the Connection doctor reports driver `wdm_usb` or `usbser` for a MediaTek
+download port, the phone is visible but libusb cannot open it yet. Spreadtrum
+phones are different: they answer on the COM port, so **Settings → SPD transport
+= serial** plus the port number is enough.
+
 ## When the phone is not detected
 
 **Connection doctor** (Chipset Database page, or the button in the operations

@@ -18,6 +18,7 @@ import queue
 import subprocess
 import threading
 import time
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -55,9 +56,12 @@ class ServiceSession:
         *,
         cwd: str | Path | None = None,
         env: dict[str, str] | None = None,
+        args: Sequence[str] | None = None,
     ) -> None:
         self.python_exe = Path(python_exe)
         self.runner_path = Path(runner_path)
+        # The frozen runner picks its engine from argv, so these must survive.
+        self.args = [str(item) for item in (args or ())]
         self.cwd = Path(cwd) if cwd else self.runner_path.parent
         self.env = dict(env or {})
         self.events: queue.Queue[ServiceEvent] = queue.Queue()
@@ -97,13 +101,13 @@ class ServiceSession:
         if packaged:
             if not self.runner_path.is_file():
                 raise FileNotFoundError("Runner executable not found: %s" % self.runner_path)
-            command = [str(self.runner_path)]
+            command = [str(self.runner_path), *self.args]
         else:
             if not self.python_exe.exists():
                 raise FileNotFoundError("Python executable not found: %s" % self.python_exe)
             if not self.runner_path.is_file():
                 raise FileNotFoundError("Runner not found: %s" % self.runner_path)
-            command = [str(self.python_exe), "-u", str(self.runner_path)]
+            command = [str(self.python_exe), "-u", str(self.runner_path), *self.args]
 
         popen_env = os.environ.copy()
         popen_env.update(self.env)

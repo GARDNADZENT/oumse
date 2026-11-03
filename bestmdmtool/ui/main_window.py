@@ -581,7 +581,7 @@ class MainWindow(tk.Tk):
         self.log(
             "Engine %s · MTK transport %s · SPD transport %s %s"
             % (
-                getattr(settings, "engine", "mtk").upper(),
+                getattr(settings, "engine", "auto").upper(),
                 getattr(settings, "transport", "auto"),
                 getattr(settings, "spd_transport", "auto"),
                 ("· port " + settings.spd_port) if getattr(settings, "spd_port", "") else "",
@@ -883,7 +883,7 @@ class MainWindow(tk.Tk):
             loader=settings.loader,
             auth=settings.auth,
             debug=settings.debug_log,
-            engine=getattr(settings, "engine", "mtk"),
+            engine=getattr(settings, "engine", "auto"),
             spd_transport=getattr(settings, "spd_transport", "auto"),
             spd_port=getattr(settings, "spd_port", ""),
         )
@@ -910,7 +910,10 @@ class MainWindow(tk.Tk):
 
     def _update_session_card(self) -> None:
         settings = self.controller.settings
-        engine = str(getattr(settings, "engine", "mtk") or "mtk").upper()
+        chosen = str(getattr(settings, "engine", "auto") or "auto").lower()
+        # "auto" resolves per device, so show the engine actually in use.
+        resolved = str(getattr(self.controller, "engine", "") or "").lower()
+        engine = (chosen if chosen in ("mtk", "spd") else (resolved or "auto")).upper()
         device = self.controller.device or {}
         chip = str(device.get("chip") or "")
         parts = len(self.controller.partitions or [])

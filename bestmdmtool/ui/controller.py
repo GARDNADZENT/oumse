@@ -39,6 +39,7 @@ class Controller:
         self.busy = False
         self.last_progress = 0
         self._start_error = ""
+        self.engine = "mtk"
 
         self._log = log
         self._on_device = on_device
@@ -83,6 +84,50 @@ class Controller:
         threading.Thread(target=_target, name="svc-worker", daemon=True).start()
 
     # -- session -----------------------------------------------------------
+    def _resolve_engine(self, requested: str) -> str:
+        """Pick the engine that matches the hardware on USB.
+
+        ``auto`` follows the detected phone. An explicit choice wins unless it
+        contradicts a phone that is sitting in the other vendor's download mode,
+        which can never work — then the hardware wins and the switch is logged.
+        """
+
+        requested = (requested or "auto").strip().lower()
+        try:
+            report = scan_report()
+        except Exception as exc:  # a broken USB stack must not block connecting
+            self.log("USB pre-check failed: %s" % exc, "WARN")
+            return requested if requested in ("mtk", "spd") else "mtk"
+
+        download = [item for item in report.get("relevant") or [] if item.get("protocol") not in ("", "unknown")]
+        vendors = {str(item.get("vendor") or "").lower() for item in download}
+        detected = "spd" if vendors == {"spd"} else "mtk" if vendors == {"mtk"} else ""
+
+        if requested == "auto":
+            if detected:
+                self.log(
+                    "Engine: auto -> %s (matching the phone detected on USB)." % detected.upper(),
+                    "INFO",
+                )
+                return detected
+            if not report.get("relevant"):
+                self.log(
+                    "Engine: auto -> MTK. No download-mode phone detected yet; the MediaTek "
+                    "engine also handles PreLoader devices.",
+                    "INFO",
+                )
+                return "mtk"
+            return "mtk"
+
+        if detected and detected != requested:
+            self.log(
+                "Engine: you selected %s, but the phone on USB is %s hardware (%s). Switching to %s."
+                % (requested.upper(), detected.upper(), report.get("detail") or "detected", detected.upper()),
+                "WARN",
+            )
+            return detected
+        return requested
+
     def connect(
         self,
         *,
@@ -101,7 +146,8 @@ class Controller:
             return
 
         def _work() -> bool:
-            self.engine = (engine or "mtk").strip().lower()
+            requested = (engine or "auto").strip().lower()
+            self.engine = self._resolve_engine(requested)
             label = "Spreadtrum BSL" if self.engine == "spd" else mode.upper()
             detail = spd_transport if self.engine == "spd" else transport
             self.log("Opening %s session (transport: %s)..." % (label, detail), "STEP")
@@ -109,7 +155,9 @@ class Controller:
             argv, cwd = runner_command(self.engine)
             frozen = frozen_runner_path()
             if frozen is not None:
-                session = ServiceSession(frozen, frozen, cwd=cwd)
+                # The frozen runner reads its engine from argv, so it must be
+                # passed through or an SPD session silently runs the MTK stack.
+                session = ServiceSession(frozen, frozen, cwd=cwd, args=argv[1:])
             elif self.engine == "spd":
                 from servicecore.config import spd_runner_path
 
@@ -117,6 +165,7 @@ class Controller:
             else:
                 session = ServiceSession(python_executable(), service_runner_path(), cwd=cwd)
             self.log("Runner: %s (%s)" % (" ".join(argv), self.engine), "DEBUG")
+            self.log("Runner working directory: %s" % cwd, "DEBUG")
 
             extra_env: dict[str, str] | None = None
             if self.engine == "spd":
