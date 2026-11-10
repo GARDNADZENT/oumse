@@ -3,6 +3,10 @@
 > as successful. The phone's current data state is unknown. Do not retry erase/flash operations.
 > v0.5.3 disables MediaTek sessions before any runner starts and removes the MTK backend/loaders
 > from the BestMDMTool installer. Use SPD/Unisoc only until MTK has been independently reviewed.
+>
+> **Source branch note:** the unreleased source UI has since been reduced to passive MTK BROM
+> detection and a disabled partition-read control. This does not change the published v0.5.3
+> installer described below, and it does not enable MTK reads.
 
 # Get BestMDMTool
 

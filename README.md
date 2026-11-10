@@ -1,252 +1,65 @@
-# Oumse GSM Tool Pro / BestMDMTool — No-Login Community Front-Ends
+# Oumse GSM Tool Pro / BestMDMTool
 
-> **Security advisory:** v0.5.2 is withdrawn. It could invoke MediaTek security-bypass code
-> automatically and report a failed erase as successful. The v0.5.3 safety build disables
-> MediaTek sessions and removes the MTK backend/loaders; check [GET_BESTMDMTOOL.md](GET_BESTMDMTOOL.md)
-> for the current installer and details. Do not retry erase/flash operations on the affected phone.
+> **Security advisory:** v0.5.2 is withdrawn. Its MediaTek backend could run unaudited security code and report a failed userdata erase as successful. The device's data state after that incident is unknown; do not retry erase, write, or flash operations on it.
+>
+> **Published BestMDMTool v0.5.3:** [download](https://github.com/GARDNADZENT/oumse/releases/download/v0.5.3/BestMDMToolSetup-0.5.3.exe) · SHA-256 `f21e81642e99db6dab0e91c28a7ecf2ca08e4c0693e03492ce52bd914511e7c5`. This containment release blocks MTK sessions and supports SPD/Unisoc only.
 
-> **Just want the installer?** Download
-> [`BestMDMToolSetup-0.5.3.exe`](https://github.com/GARDNADZENT/oumse/releases/download/v0.5.3/BestMDMToolSetup-0.5.3.exe)
-> (self-contained, no login, no Python needed). Step-by-step instructions: [GET_BESTMDMTOOL.md](GET_BESTMDMTOOL.md).
+## Current BestMDMTool source direction
 
-This repository contains **two directly opening, no-login front-ends**. The
-BestMDMTool v0.5.3 installer supports the SPD/Unisoc engine; its MTK session is
-disabled pending a security review. The older community app and legacy runners
-are separate components and are not part of the BestMDMTool installer:
+The current, unreleased source has been simplified to a single-purpose **MTK BootROM partition-reader screen**. It offers passive USB detection only; the MTK session backend remains disabled pending independent security review. The partition-read control is visibly unavailable, and no write, erase, format, flash, reboot, unlock, ADB, PAC, DIAG, or SPD controls appear in the launched app.
 
-- `app/` — Oumse GSM Tool Pro community edition.
-- `bestmdmtool/` — **BestMDMTool**, a separate authorized-service product.
+The source UI change does **not** alter the published v0.5.3 installer. See [bestmdmtool/README.md](bestmdmtool/README.md) for the prototype's exact limits and [GET_BESTMDMTOOL.md](GET_BESTMDMTOOL.md) for the published release.
 
-They share some path and session utilities in `servicecore/`; the BestMDMTool
-installer excludes the MTK backend and legacy device runners. Neither front-end has a login screen, licensing server, heartbeat, or telemetry.
-The original compiled Windows client has been moved to `legacy/` and is no longer the default
-entry point.
+## Applications
 
-> Use `START_NO_LOGIN.bat` for the community app, or `START_BEST_MDM_TOOL.bat` for BestMDMTool.
-> Both open the GUI immediately.
+- `bestmdmtool/` — BestMDMTool, separately branded, no-login app. Launches directly into the one-screen MTK BROM prototype.
+- `app/` — the separate Oumse community front-end.
+- `legacy/` — the original compiled client, retained for reference and not used as the default application.
 
-## What changed
+Neither new front-end requires login or a remote account. BestMDMTool includes no MDM/FRP bypass, credential bypass, or licensing-bypass functionality.
 
-- Added `app/`, a standard-library Python/Tkinter GUI that starts without authentication.
-- Added `bestmdmtool/`, a separate no-login product with its own branding and compliance copy.
-- Added `servicecore/`, shared session, patching, safety, and config code used by both apps.
-- Added `app/session.py`, a structured client for `runtime/lib/oumse_brom_session_runner.py`.
-- Added `app/patching.py`, a safe local patch engine with validation, checksums, backups, and
-  atomic writes.
-- Added `app/safety.py`, partition-name validation and critical-partition guards.
-- Added `tests/`, `pyproject.toml`, `requirements-dev.txt`, and GitHub Actions CI.
-- Added two Windows installer projects: `installer/` and `installer-bestmdmtool/`.
-- Removed committed runtime logs, device identifiers, duplicate/wrapper executables, and Inno
-  Setup uninstaller artifacts.
-- Hardened `.gitignore` against logs, secrets, device dumps, and accidental Windows copies.
-- Added `SECURITY.md` and an updated audit in `PROJECT_ANALYSIS.md`.
+## Run BestMDMTool from source
 
-## Quick start (Windows)
+Requires Python 3.10+ with Tkinter:
 
-1. Install **Python 3.10+ with Tkinter** (the official python.org installer includes it). The
-   bundled `runtime\bin\python.exe` is used only by the source-mode fallback launcher.
-2. For BestMDMTool v0.5.3, use the SPD/Unisoc engine only. MediaTek sessions are disabled.
-3. For Spreadtrum/Unisoc, connect the phone in BSL/download mode as required by the chipset.
-4. Double-click one of the launchers:
-   - **`START_NO_LOGIN.bat`** — Oumse community front-end.
-   - **`START_BEST_MDM_TOOL.bat`** — BestMDMTool.
-
-Or from a command prompt:
-
-```bat
-cd /d path\to\oumse
-py -3 -m app
-rem or: python -m app
-
-rem BestMDMTool:
+```powershell
 py -3 -m bestmdmtool
-rem or: python -m bestmdmtool
 ```
 
-For development on Linux/macOS (GUI only; hardware operations remain Windows-only):
+Or double-click `START_BEST_MDM_TOOL.bat` from the repository root. The app opens without login. Its **Scan for MTK BootROM** button only enumerates USB devices; it does not open a phone session.
+
+## Build the BestMDMTool installer
+
+The mandatory PowerShell invocation uses the `.` prefix:
+
+```powershell
+.\BUILD_BESTMDMTOOL_INSTALLER.bat
+```
+
+The current GitHub release remains v0.5.3. Building this source produces an unreleased development build; it does not make MTK partition reads available.
+
+## Tests
+
+Run the test suite with:
 
 ```bash
-./run_gui.sh
-# or
-OUMSE_GUI_PYTHON=python3 python3 -m app
-
-./run_bestmdmtool.sh
-# or
-BEST_MDM_TOOL_PYTHON=python3 python3 -m bestmdmtool
+python -m unittest discover -s tests -v
 ```
 
-On minimal Linux installs, install the OS package that provides Tkinter (for example
-`python3-tk` on Debian/Ubuntu).
-
-## Features
-
-Both GUIs provide the same core feature set. BestMDMTool uses its own branding and an
-authorized-use notice.
-
-### Session tab
-
-- Start/stop the persistent BROM runner.
-- Choose `brom` or `preloader` mode.
-- Optionally select a custom DA loader and auth file.
-- Optional verbose runner debugging.
-- Shows the resolved Python, runner, and runtime paths.
-
-### Partitions tab
-
-- Automatically loads the partition table from the runner's `OUMSE_READY` message.
-- Read a selected partition to a local file.
-- Write a local file to a selected partition.
-- Erase one or more selected partitions.
-- Reboot the device.
-- Critical partitions are highlighted and blocked from erase.
-- Destructive actions require typed confirmation.
-
-### Patch file tab
-
-- Select an input binary, a patches JSON file, and an output path.
-- Validate the patch plan before writing anything.
-- Apply patches locally with:
-  - strict integer/offset/range validation;
-  - no negative-index wraparound;
-  - SHA-256 before/after;
-  - backup of an existing output file;
-  - atomic output replacement.
-- Write the patched file to a selected partition through the active BROM session.
-
-Patch JSON format:
-
-```json
-{
-  "single_offsets": [
-    { "offset": 16, "value": 255 }
-  ],
-  "fill_offsets": [
-    { "start": 32, "end": 63, "value": 0 }
-  ]
-}
-```
-
-`offset`, `start`, `end`, and `value` accept integers or numeric strings; `0x` strings are also
-accepted. `value` must be between 0 and 255. `end` is inclusive.
-
-### Logs tab
-
-- Live, color-coded runner output.
-- Clear and auto-scroll controls.
-- Log buffer is capped to avoid unbounded memory growth.
-
-## No-login guarantee
-
-`tests/test_no_login.py` and `tests/test_bestmdmtool.py` fail if login, licensing, heartbeat,
-server, or network code is introduced into `app/`, `servicecore/`, or `bestmdmtool/`. The GUIs
-call only local subprocesses and local files. They do not import `requests`, `urllib`, `socket`,
-or any licensing client.
-
-The legacy executable in `legacy/` still contains the old login workflow. It is retained for
-reference only and should not be distributed as the primary application. See
-`legacy/README.md` and `SECURITY.md`.
+The suite covers the no-login entry point, passive BROM detection, fail-closed MTK behavior, partition-result validation, the independent SPD protocol modules, and packaging checks.
 
 ## Repository layout
 
 ```text
-app/                       # Original no-login community GUI
-bestmdmtool/               # Separate BestMDMTool no-login GUI
-servicecore/               # Shared session, patching, safety, and config code
-tests/                     # Unit tests for patching, protocol, safety, no-login guarantee
-runtime/lib/               # Vendored mtkclient + original BROM runners
-runtime/bin/               # Embedded Windows Python runtime
-Bin/, adb_assets/          # Third-party Windows flashing/ADB utilities
-certifi/                   # CA bundle
-legacy/                    # Original compiled client (reference only)
-START_NO_LOGIN.bat         # Oumse community Windows launcher
-START_BEST_MDM_TOOL.bat    # BestMDMTool Windows launcher
-run_gui.sh                 # Oumse development launcher for Unix-like systems
-run_bestmdmtool.sh         # BestMDMTool development launcher for Unix-like systems
-installer/                 # Oumse community Windows installer project
-installer-bestmdmtool/     # BestMDMTool Windows installer project
-.github/workflows/         # CI and installer build workflows
-PROJECT_ANALYSIS.md        # Full static audit
-SECURITY.md                # Security posture and residual risks
+app/                       # Oumse community GUI
+bestmdmtool/               # BestMDMTool UI and branding
+servicecore/               # USB discovery, session and chipset code
+installer-bestmdmtool/     # BestMDMTool installer/build project
+installer/                 # Oumse community installer project
+tests/                     # Unit and headless UI tests
+legacy/                    # Original compiled client, reference only
+.github/workflows/         # CI and Windows installer workflows
+SECURITY.md                # Security posture and incident notes
+PROJECT_ANALYSIS.md        # Repository audit notes
+GET_BESTMDMTOOL.md         # Published BestMDMTool release/download instructions
 ```
-
-## Windows installers
-
-Two reproducible Inno Setup projects are included.
-
-### Oumse community installer
-
-On Windows, run:
-
-```bat
-installer\build_installer.bat
-```
-
-It produces `installer\artifacts\OumseNoLoginSetup-1.0.0.exe`. See `installer/README.md`.
-
-### BestMDMTool installer
-
-On Windows, run:
-
-```bat
-installer-bestmdmtool\build_installer.bat
-```
-
-It produces `installer-bestmdmtool\artifacts\BestMDMToolSetup-0.5.3.exe`. See
-`installer-bestmdmtool/README.md` and `bestmdmtool/README.md`.
-
-Both installers create Start Menu and optional Desktop shortcuts that launch their respective
-no-login GUI through a hidden PowerShell/VBS launcher. They exclude the legacy login
-executable, logs, device identifiers, tests, and Git metadata.
-
-Because this Linux sandbox has no Inno Setup compiler, the `.exe` files are built by
-`.github/workflows/build-installer.yml` and
-`.github/workflows/build-bestmdmtool-installer.yml` on Windows runners. Portable ZIPs can also
-be generated locally with:
-
-```bash
-python installer/build_portable.py
-python installer-bestmdmtool/build_portable.py
-```
-
-## BestMDMTool
-
-**BestMDMTool** is a separate, no-login, authorized-service application inspired by the layout
-and workflow of the community front-end. It has its own branding, version, installer, AppId,
-launcher scripts, and documentation.
-
-It is **not** a copy of the legacy compiled OumseGSM executable. It does not include the legacy
-login/anti-analysis/licensing code, MDM/FRP bypass algorithms, server-side patch algorithms, or
-credential/licensing-bypass logic. Use it only on devices you own or are explicitly authorized
-to service.
-
-See `bestmdmtool/README.md` for full details.
-
-## Development
-
-```bash
-python -m pip install -r requirements-dev.txt
-ruff check app bestmdmtool servicecore tests installer/build_portable.py installer-bestmdmtool/build_portable.py
-python -m compileall -q app bestmdmtool servicecore tests installer/build_portable.py installer-bestmdmtool/build_portable.py
-python -m unittest discover -s tests -v
-```
-
-CI runs the same lint, compile, portable-packaging, and unit-test steps on Python 3.12. GUI and
-hardware behavior are not exercised in CI because they require Windows USB drivers and a
-physical device.
-
-## Known limitations
-
-- Both GUIs currently cover the MTK BROM runner. SPD, ADB, server-side patch algorithms,
-  and the original compiled GUI's full feature set are not reimplemented here.
-- BestMDMTool deliberately does not include MDM/FRP bypass or legacy licensing/bypass logic.
-- Device writes still cannot be rolled back. Always keep a full dump before writing.
-- The vendored `mtkclient`, DA binaries, APKs, and Windows DLLs remain third-party artifacts
-  with unresolved redistribution/provenance questions.
-- The legacy executable is unsigned and contains a hardcoded remember-me key. Do not use it.
-
-## Legal and compliance
-
-These tools can read, write, and erase device partitions. Use them only on devices you own or
-are explicitly authorized to service. The vendored `mtkclient` is GPLv3; review
-`runtime/lib/LICENSE`, vendor DA redistribution rights, and all bundled third-party licenses
-before distributing a release. See `SECURITY.md` and `PROJECT_ANALYSIS.md`.

@@ -1,7 +1,8 @@
 """Entry point for the BestMDMTool desktop application.
 
-The window opens straight into the device workspace: no login screen, no
-account, and no remote service.
+The app opens directly into its single-purpose, read-only MTK BootROM
+partition-reader screen. USB detection is passive. MTK device sessions remain
+disabled pending an independent security review.
 """
 
 from __future__ import annotations
@@ -21,11 +22,11 @@ from .branding import (
     PRODUCT_TITLE,
     PRODUCT_VERSION,
 )
-from .ui import MainWindow
+from .ui.partition_reader import PartitionReaderWindow
 
 
-class BestMDMToolApp(MainWindow):
-    """Main window carrying the BestMDMTool branding."""
+class BestMDMToolApp(PartitionReaderWindow):
+    """Single-screen BestMDMTool application carrying product branding."""
 
     def __init__(self) -> None:
         super().__init__(
@@ -34,12 +35,14 @@ class BestMDMToolApp(MainWindow):
             product_version=PRODUCT_VERSION,
             product_subtitle=PRODUCT_SUBTITLE,
             authorized_use=AUTHORIZED_USE,
+            build_ui=False,
         )
         self.title(PRODUCT_TITLE)
+        self._build_ui()
 
 
 def main() -> None:
-    """Open the workspace window. No login, no server, no account."""
+    """Open the read-only workspace. No login, no account, no device session."""
 
     from .applog import configure, write_crash
 

@@ -96,9 +96,16 @@ class UiSmokeTests(unittest.TestCase):
             with open(os.path.join("/tmp/smoke", name), "wb") as handle:
                 handle.write(b"\x00" * 2048)
 
-        from bestmdmtool.gui import BestMDMToolApp
+        from bestmdmtool import branding
+        from bestmdmtool.ui.main_window import MainWindow
 
-        cls.app = BestMDMToolApp()
+        cls.app = MainWindow(
+            product_name=branding.PRODUCT_NAME,
+            product_title=branding.PRODUCT_TITLE,
+            product_version=branding.PRODUCT_VERSION,
+            product_subtitle=branding.PRODUCT_SUBTITLE,
+            authorized_use=branding.AUTHORIZED_USE,
+        )
         cls.session = FakeSession()
         cls.app.controller.session = cls.session
         cls.app.controller.device = dict(cls.session.device)
